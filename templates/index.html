@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skill Attribution & Near-Miss Effect Study</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Welcome Screen -->
+        <div id="welcome-screen" class="screen active">
+            <div class="welcome-content">
+                <h1>Skill Attribution & Near-Miss Effect</h1>
+                <p class="subtitle">A Psychology Research Study</p>
+                
+                <div class="info-box">
+                    <h2>Welcome!</h2>
+                    <p>In this study, you'll play two games and help us understand how people respond to near-misses.</p>
+                    <p><strong>Duration:</strong> About 5 minutes</p>
+                    <p><strong>What you'll do:</strong> Play games and make simple choices about whether to continue or try something else.</p>
+                </div>
+
+                <button class="btn btn-primary" onclick="startExperiment()">Start Study</button>
+
+                <div id="test-mode-panel" class="test-mode-panel hidden">
+                    <h3>Test Mode</h3>
+                    <p>Choose which condition to test:</p>
+                    <div class="test-mode-buttons">
+                        <button class="btn btn-primary" onclick="startExperiment('skill')">Skill Condition</button>
+                        <button class="btn btn-primary" onclick="startExperiment('luck')">Luck Condition</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Frame Intro Screen -->
+        <div id="frame-intro-screen" class="screen">
+            <div class="frame-content">
+                <h2 id="frame-title"></h2>
+                <div id="frame-description"></div>
+                <button class="btn btn-primary" onclick="proceedToGame()">Start Game</button>
+            </div>
+        </div>
+
+        <!-- Bar Task Screen -->
+        <div id="bar-task-screen" class="screen">
+            <div class="game-container">
+                <div class="trial-counter">
+                    Trial <span id="current-trial">1</span> of 5
+                </div>
+
+                <div class="bar-task">
+                    <div class="bar-wrapper">
+                        <div class="target-zone" id="target-zone"></div>
+                        <div class="bar" id="moving-bar"></div>
+                    </div>
+                    <div class="instructions" id="bar-instructions">
+                        The red bar will move from left to right. Try to stop it inside the <strong>green target zone</strong>.<br>
+                        Press <strong>SPACE</strong> or click <strong>STOP</strong> when the bar is inside the zone.
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="start-trial-btn" onclick="beginTrial()">Start</button>
+                <button class="btn btn-primary hidden" id="stop-btn" onclick="stopBar()">STOP</button>
+
+                <div id="trial-feedback" class="feedback-box hidden">
+                    <div id="feedback-message"></div>
+                    <button class="btn btn-secondary" onclick="nextTrial()">Next Trial</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slot Machine Screen -->
+        <div id="slot-task-screen" class="screen">
+            <div class="game-container">
+                <div class="trial-counter">
+                    Trial <span id="slot-current-trial">1</span> of 5
+                </div>
+
+                <div class="slot-machine">
+                    <div class="slot-cabinet">
+                        <div class="slot-reels">
+                            <div class="slot-reel" id="reel-0">
+                                <div class="reel-inner">
+                                    <span class="reel-symbol">?</span>
+                                </div>
+                            </div>
+                            <div class="slot-reel" id="reel-1">
+                                <div class="reel-inner">
+                                    <span class="reel-symbol">?</span>
+                                </div>
+                            </div>
+                            <div class="slot-reel" id="reel-2">
+                                <div class="reel-inner">
+                                    <span class="reel-symbol">?</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="slot-instructions">
+                        Press <strong>SPIN</strong> to try your luck. The outcome is entirely random.
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="spin-btn" onclick="spinSlots()">SPIN</button>
+
+                <div id="slot-feedback" class="feedback-box hidden">
+                    <div id="slot-feedback-message"></div>
+                    <button class="btn btn-secondary" onclick="nextSlotTrial()">Next Trial</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results & Decision Screen -->
+        <div id="results-screen" class="screen">
+            <div class="results-content">
+                <h2>Game Results</h2>
+                
+                <div class="score-box">
+                    <div class="score-large" id="win-rate">0%</div>
+                    <div class="score-label">Success Rate</div>
+                    <div class="score-detail" id="hits-detail">0 out of 5 hits</div>
+                </div>
+
+                <div class="decision-box">
+                    <h3>What would you like to do next?</h3>
+
+                    <div class="choice-container">
+                        <button class="choice-btn" onclick="makeDecision('continue')">
+                            <span class="choice-icon">🔄</span>
+                            <span class="choice-text">Play the same game again</span>
+                        </button>
+                        <button class="choice-btn" onclick="makeDecision('switch')">
+                            <span class="choice-icon">🔀</span>
+                            <span class="choice-text">Switch to a different game (which may or may not involve skill)</span>
+                        </button>
+                    </div>
+
+                    <div class="rating-container">
+                        <label>How willing are you to continue? (1-10)</label>
+                        <div class="rating-scale">
+                            <input type="range" id="willingness-slider" min="1" max="10" value="5">
+                            <div class="rating-labels">
+                                <span>Not at all</span>
+                                <span id="rating-value">5</span>
+                                <span>Very much</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- End Screen -->
+        <div id="end-screen" class="screen">
+            <div class="end-content">
+                <h2>Thank You!</h2>
+                <p>Your responses have been saved. This helps us understand how people make decisions after near-misses.</p>
+                <button class="btn btn-primary" onclick="location.reload()">Start New Session</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/experiment.js') }}"></script>
+</body>
+</html>
