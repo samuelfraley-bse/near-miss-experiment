@@ -227,6 +227,71 @@ body {
     letter-spacing: 1px;
 }
 
+/* Shared Status Bar */
+.game-status-bar {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--bg-light);
+    border: 1px solid #d7dde3;
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+
+.status-item {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Wager Screen */
+.wager-content {
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.wager-content h2 {
+    color: var(--primary);
+    font-size: 28px;
+    margin: 26px 0 8px;
+}
+
+.wager-prompt {
+    color: var(--text);
+    margin-bottom: 26px;
+}
+
+.wager-buttons {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.wager-btn {
+    border: 2px solid #d7dde3;
+    background: #fff;
+    color: var(--primary);
+    border-radius: 10px;
+    min-height: 62px;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.wager-btn:hover {
+    border-color: var(--info);
+    transform: translateY(-1px);
+}
+
+.wager-info {
+    color: var(--text-light);
+    font-size: 14px;
+}
+
 /* Bar Task */
 .bar-task {
     width: 100%;
@@ -408,23 +473,21 @@ body {
     margin-bottom: 30px;
 }
 
-.score-large {
-    font-size: 48px;
+.result-outcome {
+    font-size: 32px;
     font-weight: 700;
-    margin-bottom: 8px;
 }
 
-.score-label {
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    opacity: 0.9;
-    margin-bottom: 8px;
+.result-hit {
+    color: #2ecc71;
 }
 
-.score-detail {
-    font-size: 13px;
-    opacity: 0.8;
+.result-near-miss {
+    color: #f39c12;
+}
+
+.result-miss {
+    color: rgba(255, 255, 255, 0.8);
 }
 
 /* Decision Box */
@@ -432,6 +495,62 @@ body {
     background: var(--bg-light);
     padding: 25px;
     border-radius: 8px;
+}
+
+/* Outcome Screen */
+.outcome-content {
+    max-width: 620px;
+    margin: 0 auto;
+}
+
+.outcome-display {
+    background: var(--bg-light);
+    border-radius: 10px;
+    padding: 26px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.outcome-text {
+    font-size: 34px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.outcome-hit {
+    color: var(--success);
+}
+
+.outcome-near-miss {
+    color: #f39c12;
+}
+
+.outcome-miss {
+    color: var(--accent);
+}
+
+.outcome-points {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.points-gained {
+    color: var(--success);
+}
+
+.points-zero {
+    color: var(--text-light);
+}
+
+.points-lost {
+    color: var(--accent);
+}
+
+.outcome-score {
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 600;
 }
 
 .decision-box h3 {
@@ -475,62 +594,111 @@ body {
     font-weight: 500;
 }
 
-/* Rating */
-.rating-container {
-    margin-top: 20px;
-    border-top: 1px solid #ddd;
-    padding-top: 20px;
+/* Self-Report Screen */
+.self-report-content {
+    max-width: 700px;
+    margin: 0 auto;
 }
 
-.rating-container label {
+.self-report-content h2 {
+    color: var(--primary);
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.self-report-intro {
+    color: var(--text-light);
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.likert-group {
+    background: var(--bg-light);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 14px;
+}
+
+.likert-label {
     display: block;
     color: var(--text);
-    font-weight: 500;
-    margin-bottom: 15px;
-    font-size: 14px;
-}
-
-.rating-scale input {
-    width: 100%;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--neutral);
-    outline: none;
-    -webkit-appearance: none;
+    font-weight: 600;
     margin-bottom: 10px;
 }
 
-.rating-scale input::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--info);
-    cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.rating-scale input::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--info);
-    cursor: pointer;
-    border: none;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.rating-labels {
+.likert-scale {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    font-size: 12px;
-    color: var(--text-light);
+    gap: 8px;
 }
 
-#rating-value {
-    color: var(--info);
-    font-weight: 600;
+.likert-anchor {
+    color: var(--text-light);
+    font-size: 12px;
+    min-width: 72px;
+}
+
+.likert-btn {
+    border: 1px solid #ccd4dd;
+    background: #fff;
+    color: var(--text);
+    border-radius: 6px;
+    width: 38px;
+    height: 36px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.likert-btn.selected {
+    background: var(--info);
+    color: #fff;
+    border-color: var(--info);
+}
+
+#submit-self-report-btn {
+    display: block;
+    margin: 16px auto 0;
+}
+
+/* Summary Screen */
+.summary-content {
+    text-align: center;
+}
+
+.summary-content h2 {
+    color: var(--primary);
+    margin-bottom: 22px;
+}
+
+.summary-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 22px;
+}
+
+.summary-stat {
+    background: var(--bg-light);
+    border-radius: 10px;
+    padding: 18px 10px;
+}
+
+.stat-label {
+    color: var(--text-light);
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.stat-value {
+    color: var(--primary);
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.summary-thanks {
+    color: var(--text);
+    margin-bottom: 24px;
 }
 
 /* End Screen */
@@ -576,6 +744,34 @@ body {
 
     .choice-container {
         flex-direction: column;
+    }
+
+    .game-status-bar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .wager-buttons {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .outcome-text {
+        font-size: 28px;
+    }
+
+    .likert-scale {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .likert-anchor {
+        width: 100%;
+        text-align: center;
+        margin-bottom: 4px;
+    }
+
+    .summary-stats {
+        grid-template-columns: 1fr;
     }
 
     .slot-reel {
