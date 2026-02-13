@@ -164,12 +164,18 @@ function startPracticeTrial() {
     }
 }
 
-function updateWagerButtons() {
-    const maxAllowedWager = Math.min(experimentState.maxWager, experimentState.bankroll);
-    document.querySelectorAll('.wager-btn').forEach(btn => {
-        const value = parseInt(btn.dataset.wager, 10);
-        btn.disabled = experimentState.bankroll < 1 || value > maxAllowedWager;
-    });
+function buildWagerButtons() {
+    const container = document.getElementById('wager-buttons');
+    container.innerHTML = '';
+    const max = experimentState.bankroll;
+    for (let i = 1; i <= max; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'wager-btn';
+        btn.dataset.wager = i;
+        btn.textContent = i;
+        btn.onclick = () => placeWager(i);
+        container.appendChild(btn);
+    }
 }
 
 // --- Wager ---
@@ -179,13 +185,12 @@ function showWagerScreen() {
     const nextTrial = experimentState.currentTrial + 1;
     document.getElementById('wager-trial-num').textContent = nextTrial;
     document.getElementById('wager-score').textContent = experimentState.bankroll;
-    updateWagerButtons();
+    buildWagerButtons();
     switchScreen('wager-screen');
 }
 
 function placeWager(amount) {
-    const maxAllowedWager = Math.min(experimentState.maxWager, experimentState.bankroll);
-    if (amount < 1 || amount > maxAllowedWager) {
+    if (amount < 1 || amount > experimentState.bankroll) {
         return;
     }
 
@@ -492,9 +497,15 @@ function showOutcome(result) {
     }
 
     if (!result.is_practice) {
-        decisionTitle.textContent = 'What would you like to do?';
-        continueText.textContent = 'Play again';
-        switchBtn.classList.remove('hidden');
+        if (result.bankroll <= 0) {
+            decisionTitle.textContent = 'Your bankroll has been depleted. The study is now complete.';
+            continueText.textContent = 'View Results';
+            switchBtn.classList.add('hidden');
+        } else {
+            decisionTitle.textContent = 'What would you like to do?';
+            continueText.textContent = 'Play again';
+            switchBtn.classList.remove('hidden');
+        }
     }
 
     document.getElementById('outcome-score').textContent = result.bankroll;

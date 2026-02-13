@@ -37,10 +37,10 @@ if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
 # Global experiment configuration
-MAX_TRIALS_PER_GAME = 15
-STARTING_BANKROLL = 20
+MAX_TRIALS_PER_GAME = 5
+STARTING_BANKROLL = 10
 MIN_WAGER = 1
-MAX_WAGER = 5
+MAX_WAGER = 10
 BAR_DURATION = 1500  # 1.5 seconds in milliseconds
 MIN_SPEED = 0.5
 MAX_SPEED = 0.9
@@ -158,12 +158,12 @@ def get_frame(game_type):
     frames = {
         'skill': {
             'title': 'Skill-Based Game',
-            'description': 'This is a game of skill and control. Your success depends on your timing ability and hand-eye coordination. With practice, you can improve your performance.',
+            'description': 'This is a game of skill and control. Your success depends on your timing ability and hand-eye coordination. Each trial, the game will change slightly, within bounds.',
             'icon': '🎯'
         },
         'luck': {
             'title': 'Luck-Based Game',
-            'description': 'This is a game of pure chance. You will play a slot machine where the outcome is completely random. Just press Spin and see what happens — there is nothing you can do to influence the result.',
+            'description': 'This is a game of pure chance. You will play a slot machine where the outcome is completely random. Just press Spin and see what happens - there is nothing you can do to influence the result.',
             'icon': '🎰'
         }
     }
@@ -223,7 +223,7 @@ def evaluate_trial():
 
     bankroll_before = parse_int(session.get('bankroll', STARTING_BANKROLL), STARTING_BANKROLL)
     if not is_practice:
-        max_allowed = min(MAX_WAGER, bankroll_before)
+        max_allowed = bankroll_before
         if wager < MIN_WAGER or wager > max_allowed:
             return jsonify({
                 'success': False,
@@ -396,7 +396,7 @@ def evaluate_slot_trial():
 
     bankroll_before = parse_int(session.get('bankroll', STARTING_BANKROLL), STARTING_BANKROLL)
     if not is_practice:
-        max_allowed = min(MAX_WAGER, bankroll_before)
+        max_allowed = bankroll_before
         if wager < MIN_WAGER or wager > max_allowed:
             return jsonify({
                 'success': False,
@@ -515,18 +515,25 @@ def save_trial_decision():
     save_record(participant_id, 'trial', trial_record)
 
     # Determine next action
-    if decision == 'switch' or trial_count >= MAX_TRIALS_PER_GAME or bankroll <= 0:
+    # Bankroll depleted — study ends immediately regardless of game
+    if bankroll <= 0:
+        return jsonify({
+            'next_action': 'end',
+            'score': session.get('score', 0),
+            'bankroll': 0,
+            'reason': 'bankroll_depleted'
+        })
+    elif decision == 'switch' or trial_count >= MAX_TRIALS_PER_GAME:
         if current_game == 1:
-            # Switch to game 2
+            # Switch to game 2 — carry bankroll over
             session['current_game'] = 2
-            session['bankroll'] = STARTING_BANKROLL
             session['slot_outcomes'] = None  # Reset slot outcomes for new game
             session.modified = True
             return jsonify({
                 'next_action': 'switch_to_game2',
                 'game2_type': session.get('game2_type'),
                 'score': session.get('score', 0),
-                'bankroll': session.get('bankroll', STARTING_BANKROLL)
+                'bankroll': session.get('bankroll', 0)
             })
         else:
             # Done with both games
@@ -593,6 +600,7 @@ def get_summary():
         'game1_trials_played': game1_trials_played,
         'game2_trials_played': game2_trials_played,
         'game1_switched': game1_trials_played < MAX_TRIALS_PER_GAME and game2_trials_played > 0,
+        'bankroll_depleted': session.get('bankroll', 0) <= 0,
         'total_score': session.get('score', 0),
         'starting_bankroll': STARTING_BANKROLL,
         'max_wager': MAX_WAGER,

@@ -11,12 +11,12 @@
         <!-- Welcome Screen -->
         <div id="welcome-screen" class="screen active">
             <div class="welcome-content">
-                <h1>Skill Attribution & Near-Miss Effect</h1>
-                <p class="subtitle">A Psychology Research Study</p>
+                <h1>Skill Attribution</h1>
+                <p class="subtitle"></p>
 
                 <div class="info-box">
                     <h2>Welcome!</h2>
-                    <p>In this study, you'll play games and help us understand how people respond to near-misses.</p>
+                    <p>In this study, you'll play games and help us with a project..</p>
                     <p><strong>Duration:</strong> About 10 minutes</p>
                     <p><strong>What you'll do:</strong> Play games, wager points, and make choices about whether to continue or try something else.</p>
                 </div>
@@ -47,18 +47,12 @@
         <div id="wager-screen" class="screen">
             <div class="wager-content">
                 <div class="game-status-bar">
-                    <span class="status-item">Trial <span id="wager-trial-num">1</span> / 15</span>
+                    <span class="status-item">Trial <span id="wager-trial-num">1</span> / 5</span>
                     <span class="status-item">Bankroll: <span id="wager-score">0</span> pts</span>
                 </div>
                 <h2>Place Your Wager</h2>
                 <p class="wager-prompt">How many points do you want to bet on this trial?</p>
-                <div class="wager-buttons">
-                    <button class="wager-btn" data-wager="1" onclick="placeWager(1)">1</button>
-                    <button class="wager-btn" data-wager="2" onclick="placeWager(2)">2</button>
-                    <button class="wager-btn" data-wager="3" onclick="placeWager(3)">3</button>
-                    <button class="wager-btn" data-wager="4" onclick="placeWager(4)">4</button>
-                    <button class="wager-btn" data-wager="5" onclick="placeWager(5)">5</button>
-                </div>
+                <div class="wager-buttons" id="wager-buttons"></div>
                 <p class="wager-info">Win = +wager &nbsp;|&nbsp; Loss/Near-miss = -wager</p>
             </div>
         </div>
@@ -223,7 +217,6 @@
                     </div>
                 </div>
                 <p class="summary-thanks">Thank you for participating! Your responses help us understand how people make decisions after near-misses.</p>
-                <button class="btn btn-primary" onclick="location.reload()">Start New Session</button>
             </div>
         </div>
     </div>
