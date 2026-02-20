@@ -1,250 +1,282 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-Data Analysis Script for Skill Attribution & Near-Miss Effect Study
+Analysis script for the current Near-Miss app data model.
 
-Loads all collected data and performs analysis:
-- Descriptive statistics
-- 2x2 ANOVA (willingness rating)
-- Persistence choice analysis
-- Trial-level analysis
+Current storage format:
+- experiment_data/*.jsonl
+- record types: trial, post_survey, summary
+
+Outputs:
+- Console report
+- participant_summary_current.csv
+- trial_level_current.csv
 """
+
+from __future__ import annotations
 
 import json
-import pandas as pd
-import numpy as np
-from glob import glob
-from scipy import stats
 import os
+from glob import glob
+from typing import Dict, List, Optional
 
-def load_experiment_data(data_dir='experiment_data'):
-    """Load all JSON data files from experiment_data directory"""
-    data = []
-    
+import pandas as pd
+from scipy import stats
+
+
+DATA_DIR = "experiment_data"
+PARTICIPANT_EXPORT = "participant_summary_current.csv"
+TRIAL_EXPORT = "trial_level_current.csv"
+
+
+def parse_records(data_dir: str = DATA_DIR) -> pd.DataFrame:
+    """Load records from jsonl files (and legacy json as best-effort fallback)."""
     if not os.path.exists(data_dir):
-        print(f"No {data_dir} directory found. Run experiment first to collect data.")
-        return None
-    
-    json_files = glob(os.path.join(data_dir, '*.json'))
-    
-    if not json_files:
-        print(f"No data files found in {data_dir}/")
-        return None
-    
-    print(f"Loading {len(json_files)} data files...")
-    
-    for file in json_files:
+        raise FileNotFoundError(f"No '{data_dir}' directory found.")
+
+    records: List[Dict] = []
+
+    jsonl_files = glob(os.path.join(data_dir, "*.jsonl"))
+    for path in jsonl_files:
+        with open(path, "r", encoding="utf-8") as f:
+            for line_num, line in enumerate(f, start=1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    records.append(json.loads(line))
+                except json.JSONDecodeError:
+                    print(f"Warning: could not parse {path}:{line_num}")
+
+    # Legacy fallback: older builds used one JSON object per file
+    json_files = glob(os.path.join(data_dir, "*.json"))
+    for path in json_files:
         try:
-            with open(file, 'r') as f:
-                participant_data = json.load(f)
-                data.append(participant_data)
-        except Exception as e:
-            print(f"Error loading {file}: {e}")
-    
-    return pd.DataFrame(data)
+            with open(path, "r", encoding="utf-8") as f:
+                obj = json.load(f)
+                if isinstance(obj, dict):
+                    records.append(obj)
+        except Exception:
+            print(f"Warning: skipping unreadable legacy file {path}")
 
-def describe_sample(df):
-    """Print basic sample description"""
-    print("\n" + "="*60)
-    print("SAMPLE DESCRIPTION")
-    print("="*60)
-    
-    n = len(df)
-    print(f"Total participants: {n}")
-    print(f"\nGame order distribution:")
-    print(df['game_order'].value_counts())
-    print(f"\nGame type distribution:")
-    print(df['game_type'].value_counts())
-    print(f"\nPersistence decision distribution:")
-    print(df['decision'].value_counts())
+    if not records:
+        raise ValueError(f"No records found in '{data_dir}'.")
 
-def analyze_willingness_ratings(df):
-    """Analyze willingness to persist ratings"""
-    print("\n" + "="*60)
-    print("WILLINGNESS RATINGS (1-10 scale)")
-    print("="*60)
-    
-    # Overall
-    print(f"\nOverall willingness: M={df['willingness_rating'].mean():.2f}, SD={df['willingness_rating'].std():.2f}")
-    
-    # By game type
-    print(f"\nBy Game Type:")
-    for game_type in ['skill', 'luck']:
-        subset = df[df['game_type'] == game_type]['willingness_rating']
-        print(f"  {game_type.capitalize()}: M={subset.mean():.2f}, SD={subset.std():.2f}, n={len(subset)}")
-    
-    # By decision
-    print(f"\nBy Persistence Decision:")
-    for decision in ['continue', 'switch']:
-        subset = df[df['decision'] == decision]['willingness_rating']
-        if len(subset) > 0:
-            print(f"  {decision.capitalize()}: M={subset.mean():.2f}, SD={subset.std():.2f}, n={len(subset)}")
+    df = pd.DataFrame(records)
+    if "timestamp" in df.columns:
+        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
 
-def analyze_persistence_choices(df):
-    """Analyze choice to continue vs switch"""
-    print("\n" + "="*60)
-    print("PERSISTENCE CHOICE ANALYSIS")
-    print("="*60)
-    
-    # Cross-tabulation
-    print("\nChoice by Game Type:")
-    crosstab = pd.crosstab(df['game_type'], df['decision'], margins=True)
-    print(crosstab)
-    
-    # Percentages
-    print("\nPercentage continuing by game type:")
-    for game_type in ['skill', 'luck']:
-        subset = df[df['game_type'] == game_type]
-        continue_pct = (subset['decision'] == 'continue').sum() / len(subset) * 100
-        print(f"  {game_type.capitalize()}: {continue_pct:.1f}% continued")
-    
-    # Chi-square test
-    if len(df) > 10:
-        contingency = pd.crosstab(df['game_type'], df['decision'])
-        chi2, p_val, dof, expected = stats.chi2_contingency(contingency)
-        print(f"\nChi-square test (game type × decision):")
-        print(f"  χ² = {chi2:.3f}, p = {p_val:.4f}")
-        if p_val < 0.05:
-            print(f"  Result: Significant difference (p < 0.05)")
-        else:
-            print(f"  Result: No significant difference (p ≥ 0.05)")
+    return df
 
-def analyze_trial_performance(df):
-    """Analyze trial-level performance metrics"""
-    print("\n" + "="*60)
-    print("TRIAL PERFORMANCE ANALYSIS")
-    print("="*60)
-    
-    # Extract trial data
-    all_trials = []
-    for idx, row in df.iterrows():
-        if 'trials' in row and isinstance(row['trials'], list):
-            for trial in row['trials']:
-                trial['participant_id'] = row['participant_id']
-                trial['game_type'] = row['game_type']
-                all_trials.append(trial)
-    
-    if not all_trials:
-        print("No trial-level data available")
+
+def split_record_types(df: pd.DataFrame):
+    """Return trial/post_survey/summary subsets."""
+    if "record_type" not in df.columns:
+        raise ValueError("Missing 'record_type' column in loaded data.")
+
+    trials = df[df["record_type"] == "trial"].copy()
+    survey = df[df["record_type"] == "post_survey"].copy()
+    summary = df[df["record_type"] == "summary"].copy()
+    return trials, survey, summary
+
+
+def latest_per_participant(df: pd.DataFrame, participant_col: str = "participant_id") -> pd.DataFrame:
+    """Keep only latest row per participant by timestamp when available."""
+    if df.empty:
+        return df
+
+    cols = df.columns.tolist()
+    if "timestamp" in df.columns:
+        out = (
+            df.sort_values("timestamp")
+            .groupby(participant_col, dropna=False, as_index=False)
+            .tail(1)
+        )
+    else:
+        out = df.drop_duplicates(subset=[participant_col], keep="last")
+
+    return out[cols].copy()
+
+
+def build_participant_table(summary_df: pd.DataFrame, survey_df: pd.DataFrame) -> pd.DataFrame:
+    """Create one row per participant for condition-level analysis."""
+    s_latest = latest_per_participant(summary_df)
+    p_latest = latest_per_participant(survey_df)
+
+    if s_latest.empty and p_latest.empty:
+        return pd.DataFrame()
+
+    merged = s_latest.merge(
+        p_latest[
+            [
+                c
+                for c in [
+                    "participant_id",
+                    "desired_rounds_next_time",
+                    "confidence_impact",
+                    "self_rated_accuracy",
+                ]
+                if c in p_latest.columns
+            ]
+        ],
+        on="participant_id",
+        how="outer",
+        suffixes=("", "_survey"),
+    )
+
+    for col in ["desired_rounds_next_time", "confidence_impact", "self_rated_accuracy"]:
+        survey_col = f"{col}_survey"
+        if col not in merged.columns and survey_col in merged.columns:
+            merged[col] = merged[survey_col]
+        elif col in merged.columns and survey_col in merged.columns:
+            merged[col] = merged[col].fillna(merged[survey_col])
+        if survey_col in merged.columns:
+            merged.drop(columns=[survey_col], inplace=True)
+
+    return merged
+
+
+def print_overview(records_df: pd.DataFrame, trials_df: pd.DataFrame, participants_df: pd.DataFrame):
+    print("\n" + "=" * 70)
+    print("NEAR-MISS APP ANALYSIS (CURRENT SCHEMA)")
+    print("=" * 70)
+    print(f"Total raw records: {len(records_df)}")
+    print(f"Trial records: {len(trials_df)}")
+    print(f"Participant summaries: {len(participants_df)}")
+
+
+def print_condition_distribution(participants_df: pd.DataFrame):
+    if participants_df.empty:
+        print("\nNo participant-level summary data available.")
         return
-    
-    trial_df = pd.DataFrame(all_trials)
-    
-    # Hit rate by game type
-    print("\nHit Rate by Game Type:")
-    for game_type in ['skill', 'luck']:
-        subset = trial_df[trial_df['game_type'] == game_type]
-        hit_rate = subset['is_hit'].sum() / len(subset) * 100 if len(subset) > 0 else 0
-        print(f"  {game_type.capitalize()}: {hit_rate:.1f}% hit rate (n={len(subset)} trials)")
-    
-    # Near-miss frequency
-    print("\nNear-Miss Frequency by Game Type:")
-    for game_type in ['skill', 'luck']:
-        subset = trial_df[trial_df['game_type'] == game_type]
-        near_miss_rate = subset['is_near_miss'].sum() / len(subset) * 100 if len(subset) > 0 else 0
-        print(f"  {game_type.capitalize()}: {near_miss_rate:.1f}% near-miss (n={len(subset)} trials)")
-    
-    # Average distance from center
-    print("\nAverage Distance from Target Center:")
-    for game_type in ['skill', 'luck']:
-        subset = trial_df[trial_df['game_type'] == game_type]
-        if len(subset) > 0:
-            avg_dist = subset['distance_from_center'].mean()
-            print(f"  {game_type.capitalize()}: {avg_dist:.1f}% (SD={subset['distance_from_center'].std():.1f})")
 
-def test_interaction_effect(df):
-    """Test 2x2 interaction: game_type × decision on willingness"""
-    print("\n" + "="*60)
-    print("TWO-WAY ANOVA: Game Type × Decision on Willingness")
-    print("="*60)
-    
-    if len(df) < 8:
-        print("Insufficient data for ANOVA (need n≥8)")
-        return
-    
-    # Create design matrix
-    df_clean = df[['game_type', 'decision', 'willingness_rating']].dropna()
-    
-    if len(df_clean) < 8:
-        print("Insufficient complete data for ANOVA")
-        return
-    
-    # Group data by conditions
-    print("\nMeans by Condition:")
-    print("="*50)
-    
-    for game_type in ['skill', 'luck']:
-        for decision in ['continue', 'switch']:
-            subset = df_clean[(df_clean['game_type'] == game_type) & 
-                             (df_clean['decision'] == decision)]['willingness_rating']
-            if len(subset) > 0:
-                print(f"{game_type.upper()} + {decision.upper()}: M={subset.mean():.2f}, SD={subset.std():.2f}, n={len(subset)}")
-    
-    # Simple t-tests by game type
-    print("\n" + "="*50)
-    print("Simple Effects Tests:")
-    print("="*50)
-    
-    for game_type in ['skill', 'luck']:
-        continue_ratings = df_clean[(df_clean['game_type'] == game_type) & 
-                                     (df_clean['decision'] == 'continue')]['willingness_rating']
-        switch_ratings = df_clean[(df_clean['game_type'] == game_type) & 
-                                   (df_clean['decision'] == 'switch')]['willingness_rating']
-        
-        if len(continue_ratings) > 0 and len(switch_ratings) > 0:
-            t_stat, p_val = stats.ttest_ind(continue_ratings, switch_ratings)
-            print(f"\n{game_type.upper()} condition (continue vs switch):")
-            print(f"  t = {t_stat:.3f}, p = {p_val:.4f}")
-            if p_val < 0.05:
-                print(f"  ✓ Significant difference")
-            else:
-                print(f"  ✗ No significant difference")
-    
-    # Comparison across game types
-    print("\n" + "="*50)
-    skill_willingness = df_clean[df_clean['game_type'] == 'skill']['willingness_rating']
-    luck_willingness = df_clean[df_clean['game_type'] == 'luck']['willingness_rating']
-    
-    if len(skill_willingness) > 0 and len(luck_willingness) > 0:
-        t_stat, p_val = stats.ttest_ind(skill_willingness, luck_willingness)
-        print(f"Skill vs Luck (overall):")
-        print(f"  t = {t_stat:.3f}, p = {p_val:.4f}")
-        print(f"  Skill M={skill_willingness.mean():.2f}, Luck M={luck_willingness.mean():.2f}")
+    print("\n" + "=" * 70)
+    print("CONDITION DISTRIBUTION")
+    print("=" * 70)
 
-def export_summary_csv(df):
-    """Export summary data as CSV for further analysis"""
-    output_file = 'experiment_summary.csv'
-    
-    summary_df = df[['participant_id', 'timestamp', 'game_order', 'game_type', 
-                      'decision', 'willingness_rating', 'win_rate']].copy()
-    
-    summary_df.to_csv(output_file, index=False)
-    print(f"\n✓ Summary data exported to {output_file}")
+    if "condition_id" in participants_df.columns:
+        print("\nBy condition_id:")
+        print(participants_df["condition_id"].value_counts(dropna=False))
+
+    if {"frame_type", "loss_frame"}.issubset(participants_df.columns):
+        print("\n2x2 cell counts (frame_type x loss_frame):")
+        ctab = pd.crosstab(participants_df["frame_type"], participants_df["loss_frame"], margins=True)
+        print(ctab)
+
+
+def print_trial_performance(trials_df: pd.DataFrame):
+    if trials_df.empty:
+        print("\nNo trial records found.")
+        return
+
+    print("\n" + "=" * 70)
+    print("TRIAL-LEVEL PERFORMANCE")
+    print("=" * 70)
+
+    for col in ["is_hit", "is_near_miss", "near_miss_raw"]:
+        if col in trials_df.columns:
+            trials_df[col] = trials_df[col].astype(bool)
+
+    if "frame_type" in trials_df.columns:
+        print("\nHit rate by frame_type:")
+        tmp = trials_df.groupby("frame_type", dropna=False)["is_hit"].mean() * 100
+        for key, val in tmp.items():
+            print(f"  {key}: {val:.1f}%")
+
+    if "loss_frame" in trials_df.columns and "is_near_miss" in trials_df.columns:
+        print("\nLabeled near-miss rate by loss_frame:")
+        tmp = trials_df.groupby("loss_frame", dropna=False)["is_near_miss"].mean() * 100
+        for key, val in tmp.items():
+            print(f"  {key}: {val:.1f}%")
+
+    if "near_miss_raw" in trials_df.columns and "is_near_miss" in trials_df.columns:
+        raw_rate = trials_df["near_miss_raw"].mean() * 100
+        labeled_rate = trials_df["is_near_miss"].mean() * 100
+        print(f"\nRaw near-miss-band rate (regardless of condition): {raw_rate:.1f}%")
+        print(f"Labeled near-miss rate (condition-aware): {labeled_rate:.1f}%")
+
+    if "distance_from_center" in trials_df.columns:
+        print("\nDistance from center (overall):")
+        print(
+            f"  M={trials_df['distance_from_center'].mean():.2f}, "
+            f"SD={trials_df['distance_from_center'].std():.2f}"
+        )
+
+
+def print_post_survey(participants_df: pd.DataFrame):
+    cols = ["desired_rounds_next_time", "confidence_impact", "self_rated_accuracy"]
+    available = [c for c in cols if c in participants_df.columns]
+    if participants_df.empty or not available:
+        print("\nNo post-survey data available.")
+        return
+
+    print("\n" + "=" * 70)
+    print("POST-SURVEY SUMMARY")
+    print("=" * 70)
+
+    for col in available:
+        s = pd.to_numeric(participants_df[col], errors="coerce")
+        print(f"{col}: M={s.mean():.2f}, SD={s.std():.2f}, n={s.notna().sum()}")
+
+    if {"frame_type", "loss_frame"}.issubset(participants_df.columns):
+        print("\nMeans by condition:")
+        group_cols = ["frame_type", "loss_frame"]
+        print(participants_df.groupby(group_cols)[available].mean(numeric_only=True).round(2))
+
+
+def run_simple_tests(trials_df: pd.DataFrame, participants_df: pd.DataFrame):
+    print("\n" + "=" * 70)
+    print("SIMPLE INFERENTIAL CHECKS")
+    print("=" * 70)
+
+    # Chi-square: labeled near-miss by loss frame
+    if {"loss_frame", "is_near_miss"}.issubset(trials_df.columns) and len(trials_df) >= 10:
+        contingency = pd.crosstab(trials_df["loss_frame"], trials_df["is_near_miss"])
+        if contingency.shape == (2, 2):
+            chi2, p_val, _, _ = stats.chi2_contingency(contingency)
+            print("Near-miss labeling by loss_frame (chi-square):")
+            print(f"  chi2={chi2:.3f}, p={p_val:.4f}")
+
+    # T-test: confidence by frame type
+    if {"frame_type", "confidence_impact"}.issubset(participants_df.columns):
+        tmp = participants_df[["frame_type", "confidence_impact"]].copy()
+        tmp["confidence_impact"] = pd.to_numeric(tmp["confidence_impact"], errors="coerce")
+        skill = tmp[tmp["frame_type"] == "skill"]["confidence_impact"].dropna()
+        luck = tmp[tmp["frame_type"] == "luck"]["confidence_impact"].dropna()
+        if len(skill) >= 2 and len(luck) >= 2:
+            t_stat, p_val = stats.ttest_ind(skill, luck, equal_var=False)
+            print("Confidence impact by frame_type (Welch t-test):")
+            print(f"  t={t_stat:.3f}, p={p_val:.4f}")
+
+
+def export_outputs(participants_df: pd.DataFrame, trials_df: pd.DataFrame):
+    participants_df.to_csv(PARTICIPANT_EXPORT, index=False)
+    trials_df.to_csv(TRIAL_EXPORT, index=False)
+    print("\n" + "=" * 70)
+    print("EXPORTS")
+    print("=" * 70)
+    print(f"Wrote: {PARTICIPANT_EXPORT}")
+    print(f"Wrote: {TRIAL_EXPORT}")
+
 
 def main():
-    """Run complete analysis"""
-    print("\n" + "="*60)
-    print("SKILL ATTRIBUTION & NEAR-MISS EFFECT STUDY")
-    print("Data Analysis Report")
-    print("="*60)
-    
-    # Load data
-    df = load_experiment_data()
-    if df is None:
+    try:
+        records = parse_records(DATA_DIR)
+    except Exception as exc:
+        print(f"Error: {exc}")
         return
-    
-    # Run analyses
-    describe_sample(df)
-    analyze_willingness_ratings(df)
-    analyze_persistence_choices(df)
-    analyze_trial_performance(df)
-    test_interaction_effect(df)
-    
-    # Export
-    export_summary_csv(df)
-    
-    print("\n" + "="*60)
-    print("Analysis complete!")
-    print("="*60 + "\n")
 
-if __name__ == '__main__':
+    trials, survey, summary = split_record_types(records)
+    participants = build_participant_table(summary, survey)
+
+    print_overview(records, trials, participants)
+    print_condition_distribution(participants)
+    print_trial_performance(trials)
+    print_post_survey(participants)
+    run_simple_tests(trials, participants)
+    export_outputs(participants, trials)
+
+    print("\nAnalysis complete.\n")
+
+
+if __name__ == "__main__":
     main()
