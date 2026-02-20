@@ -1,341 +1,170 @@
-================================================================================
-SKILL ATTRIBUTION & NEAR-MISS EFFECT STUDY
-Complete Project Architecture
-================================================================================
+﻿===============================================================================
+NEAR-MISS STUDY APP
+Current Project Structure and Architecture
+===============================================================================
+
+Last updated: 2026-02-20
 
 PROJECT LAYOUT
 ==============
 
-skill-near-miss-experiment/
-│
-├── CORE APPLICATION
-│   ├── app.py                      # Flask backend (port 5000)
-│   ├── requirements.txt            # Dependencies: Flask, Werkzeug
-│   └── experiment_data/            # Auto-created, stores *.json files
-│
-├── FRONTEND
-│   ├── templates/
-│   │   └── index.html              # Single-page web interface
-│   └── static/
-│       ├── css/
-│       │   └── style.css           # Responsive styling
-│       └── js/
-│           └── experiment.js       # Client-side logic
-│
-├── ANALYSIS & VALIDATION
-│   ├── analyze_data.py             # Statistical analysis script
-│   └── test_setup.py               # Setup validation script
-│
-└── DOCUMENTATION
-    ├── START_HERE.md               # ← Read this first!
-    ├── QUICKREF.md                 # Quick commands & changes
-    ├── SETUP.md                    # Detailed setup guide
-    ├── README.md                   # Full project documentation
-    └── EXAMPLE_DATA.md             # Example output & interpretation
+near-miss/
+|
+|-- app.py                         # Flask backend (session + API + persistence)
+|-- analyze_data.py                # Analysis for current jsonl schema
+|-- test_setup.py                  # Setup and structure validator
+|-- requirements.txt               # Runtime + analysis dependencies
+|-- README.md                      # Main usage and run guide
+|-- STATUS.md                      # Current app behavior + AI prompt bank
+|-- SETUP.md                       # Setup reference (older sections may differ)
+|-- QUICKREF.md                    # Quick reference notes
+|-- INDEX.md                       # Navigation notes
+|-- EXAMPLE_DATA.md                # Example data notes
+|-- START_HERE.md                  # Starter note
+|-- PROJECT_STRUCTURE.txt          # This file
+|
+|-- templates/
+|   `-- index.html                 # Single-page UI with all screens
+|
+|-- static/
+|   |-- css/
+|   |   `-- style.css              # Styling
+|   `-- js/
+|       `-- experiment.js          # Frontend state machine + API calls
+|
+`-- experiment_data/               # Local data store (jsonl files)
+    `-- PXXXXX.jsonl               # One file per participant
 
-================================================================================
-
-DATA FLOW
-=========
-
-PARTICIPANT JOURNEY:
-│
-├─→ Loads http://localhost:5000
-│
-├─→ Welcome Screen (app.py / start-session endpoint)
-│   └─ Assigns random game order (skill_first or luck_first)
-│
-├─→ Frame Introduction (app.py / get-frame endpoint)
-│   ├─ Loads skill or luck framing
-│   └─ Displays frame description
-│
-├─→ 5 Bar Task Trials (app.py / generate-bar-trial endpoint)
-│   ├─ Trial 1: Generate random bar speed & target position
-│   ├─ Trial 2: Bar animates (JavaScript in browser)
-│   ├─ Trial 3: Participant clicks STOP to try hitting target
-│   ├─ Trial 4: app.py evaluates accuracy (evaluate-trial endpoint)
-│   └─ Trial 5: Feedback shown, repeat for next trial
-│
-├─→ Results Screen (app.py / get-results endpoint)
-│   ├─ Shows win rate (hits/5)
-│   ├─ Displays score and performance
-│   └─ Ready for decision
-│
-├─→ Decision & Rating (app.py / save-decision endpoint)
-│   ├─ Participant chooses: Continue OR Switch
-│   ├─ Rates willingness (1-10 slider)
-│   └─ Data saved to JSON file
-│
-└─→ Thank You Screen
-    └─ Session complete
-
-
-TECHNICAL ARCHITECTURE
+===============================================================================
+RUNTIME FLOW (CURRENT)
 ======================
 
-BACKEND (Flask):
-  app.py
-  ├── Routes:
-  │   ├── GET  /                    → Serve index.html
-  │   ├── POST /api/start-session   → Initialize participant
-  │   ├── GET  /api/get-frame/:type → Load frame description
-  │   ├── POST /api/generate-bar-trial → Create trial parameters
-  │   ├── POST /api/evaluate-trial  → Check accuracy
-  │   ├── POST /api/get-results     → Aggregate 5-trial results
-  │   ├── POST /api/save-decision   → Save JSON with all data
-  │   └── GET  /api/export-all-data → Download all data
-  │
-  ├── State Management:
-  │   └── Flask sessions (per browser)
-  │       ├── participant_id
-  │       ├── game_order
-  │       ├── current_trial
-  │       └── trials[] (results from each trial)
-  │
-  └── Data Persistence:
-      └── experiment_data/ (folder)
-          └── P{ID}_{timestamp}.json files
+1) Browser loads GET /
+   - app.py serves templates/index.html
 
-FRONTEND (HTML/CSS/JavaScript):
-  index.html (wrapper)
-  ├── Contains all 5 screens (initially hidden)
-  │   ├── Welcome screen
-  │   ├── Frame intro screen
-  │   ├── Bar task screen (with animated bar)
-  │   ├── Results screen
-  │   └── End screen
-  │
-  ├── CSS (style.css):
-  │   ├── Layout (flexbox, responsive)
-  │   ├── Colors (CSS variables)
-  │   ├── Animations (fade-in, slider)
-  │   └── Components (buttons, forms)
-  │
-  └── JavaScript (experiment.js):
-      ├── Session management
-      ├── Screen switching logic
-      ├── Bar animation (requestAnimationFrame)
-      ├── API calls to backend
-      ├── Event listeners (clicks, keyboard)
-      └── Data validation before submission
+2) Session starts: POST /api/start-session
+   - Assigns participant_id
+   - Sets condition:
+     - frame_type: skill | luck
+     - loss_frame: near_miss | clear_loss
+     - condition_id: <frame_type>_<loss_frame>
+   - Initializes session trial state
 
-ANALYSIS (Python):
-  analyze_data.py
-  ├── Load experiment_data/*.json files
-  ├── Create pandas DataFrame
-  ├── Descriptive statistics
-  ├── Group-by analyses (by game_type, decision)
-  ├── Statistical tests (chi-square, t-tests)
-  ├── Trial-level analysis
-  └── Export experiment_summary.csv
+3) Frame intro: GET /api/get-frame
+   - Returns title + description for selected frame
 
-================================================================================
+4) Trial loop (MAX_TRIALS = 5)
+   - POST /api/generate-bar-trial: bar speed and target zone
+   - Frontend runs moving-bar animation
+   - Participant presses Space or STOP
+   - POST /api/evaluate-trial: computes hit / near_miss / loss
 
-EXPERIMENT CONDITIONS
-====================
+5) Post survey: POST /api/save-post-survey
+   - desired_rounds_next_time: 1..5
+   - confidence_impact: 1..7
+   - self_rated_accuracy: 1..7
 
-2×2 FACTORIAL DESIGN:
+6) Summary: GET /api/get-summary
+   - Returns condition, counts, trials, post_survey
 
-                    CLEAR-LOSS          NEAR-MISS
-                    (hard trials)       (easy trials)
-                    ──────────────      ───────────
-SKILL FRAME         Control             TARGET CONDITION
-(you control it)    participants        • Higher expected willingness
-                    • Baseline control  • More "continue" decisions
-                    
-LUCK FRAME          Control             Control
-(chance/random)     participants        participants
-                    • Baseline control  • Smaller near-miss effect
-                    
-KEY PREDICTION:
-Skill × Near-miss condition should show significantly HIGHER:
-  - Willingness ratings (vs other conditions)
-  - "Continue" decision rate
-  - Persistence across trials
+7) Data export: GET /api/export-all-data
+   - Returns all records from DB (if configured) or local jsonl files
 
-
-RANDOMIZATION:
-  Game Order: Random assignment to skill_first or luck_first
-  Bar Speed: Random within range [MIN_SPEED, MAX_SPEED]
-  Target Position: Random position on bar (30-50%)
-  Feedback Type: Naturally occurs based on trial difficulty
-
-
-TRIAL MECHANICS
-===============
-
-BAR MOVEMENT:
-  - Starts at left (0%)
-  - Moves right at speed = random(MIN_SPEED, MAX_SPEED)
-  - Takes ~2 seconds to cross
-  - Some sinusoidal variation for realism
-  - Participant clicks STOP to record position
-
-TARGET ZONE:
-  - Green highlighted area (15% width)
-  - Appears at random position (30-65%)
-  - Visual feedback on hit/near-miss/miss
-
-FEEDBACK CLASSIFICATION:
-  Hit:       bar_position within target zone
-  Near-miss: bar_position within 10% outside zone
-  Clear-loss: bar_position >10% away from zone
-
-SKILL VARIATION:
-  Easy trials (near-miss likely):
-    Bar speed = 0.3-0.5 (slower, easier to hit)
-    Result: ~60-70% hit rate
-  
-  Hard trials (clear-loss likely):
-    Bar speed = 0.5-0.7 (faster, harder to hit)
-    Result: ~30-40% hit rate
-
-
-DATA STORAGE
-============
-
-EACH PARTICIPANT FILE: experiment_data/P{ID}_{timestamp}.json
-
-Structure:
-{
-  "participant_id": "P12345",
-  "timestamp": "2023-12-18T14:30:22.123456",
-  "game_order": "skill_first" | "luck_first",
-  "game_type": "skill" | "luck",
-  "decision": "continue" | "switch",
-  "willingness_rating": 1-10,
-  "win_rate": 0-100,
-  "trials": [
-    {
-      "trial_number": 1-5,
-      "bar_position": 0-100 (percent),
-      "is_hit": true|false,
-      "is_near_miss": true|false,
-      "distance_from_center": 0-100 (percent)
-    },
-    ...
-  ]
-}
-
-SIZE: ~2-3 KB per participant (100 KB per 40 participants)
-
-
-ANALYSIS WORKFLOW
+===============================================================================
+ACTIVE API ROUTES
 =================
 
-1. COLLECT DATA
-   Run: python app.py
-   Share: http://localhost:5000 with participants
+GET  /
+POST /api/start-session
+GET  /api/get-frame
+POST /api/generate-bar-trial
+POST /api/evaluate-trial
+POST /api/save-post-survey
+GET  /api/get-summary
+GET  /api/export-all-data
 
-2. ANALYZE RESULTS
-   Run: python analyze_data.py
-   
-   Outputs:
-   ├── Console report with:
-   │   ├── Sample description
-   │   ├── Descriptive statistics
-   │   ├── Group comparisons
-   │   ├── Statistical tests (p-values)
-   │   └── Effect interpretation
-   │
-   └── experiment_summary.csv
-       └── Ready for Excel, R, or further analysis
-
-3. VISUALIZE (manual step)
-   Import experiment_summary.csv into:
-   ├── Excel (pivot tables, charts)
-   ├── R (ggplot2, statistical tests)
-   ├── Python (matplotlib, seaborn)
-   └── SPSS/Jamovi (if needed)
-
-4. REPORT
-   Compare to predictions:
-   ├── Is skill + near-miss condition significantly different?
-   ├── What's the effect size?
-   ├── Do results support the theory?
-   └── What's the practical meaning?
-
-================================================================================
-
-CUSTOMIZATION POINTS
+===============================================================================
+DATA MODEL (CURRENT)
 ====================
 
-Change these to modify experiment:
+Storage mode A: PostgreSQL (when DATABASE_URL is set)
+- SQLAlchemy model ExperimentResult with metadata + JSON payload
 
-app.py:
-  Line ~25   TRIAL_COUNT = 5         # Number of trials
-  Line ~26   BAR_DURATION = 2000     # Trial length (ms)
-  Line ~27   MIN_SPEED = 0.3         # Minimum bar speed
-  Line ~28   MAX_SPEED = 0.7         # Maximum bar speed
-  Line ~78   frames = {...}          # Frame descriptions
-  Line ~90   target_zone_width = 15  # Target zone size (%)
-  
-style.css:
-  Line ~15-25  :root {--primary...}  # Change colors
-  Any CSS rule                       # Modify styling
+Storage mode B: Local fallback (default dev)
+- experiment_data/<participant_id>.jsonl
+- newline-delimited JSON records
 
-experiment.js:
-  Line ~100  barSpeed calculation    # Adjust difficulty curve
-  Line ~200  animation logic         # Change bar behavior
+Record types written:
+- trial
+- post_survey
+- summary
 
-================================================================================
+Important note:
+- Near-miss label is condition-aware.
+- If loss_frame is clear_loss, near_miss_raw may be true but outcome is loss.
 
-DEPLOYMENT (Optional)
-====================
+===============================================================================
+ANALYSIS PIPELINE (CURRENT)
+===========================
 
-To share with remote participants:
+Script: analyze_data.py
 
-LOCAL SETUP (for testing):
-  python app.py
-  → http://localhost:5000
+Inputs:
+- experiment_data/*.jsonl
+- legacy experiment_data/*.json accepted as fallback
 
-SAME NETWORK:
-  Find IP: ipconfig (Windows) or ifconfig (Mac/Linux)
-  Share: http://YOUR.IP:5000 with teammates
+Processing:
+- Splits record_type into trial / post_survey / summary tables
+- Builds latest participant-level table
+- Reports:
+  - condition counts (frame_type x loss_frame)
+  - trial hit and near-miss rates
+  - post-survey means
+  - simple inferential checks when possible
 
-INTERNET (requires cloud hosting):
-  Option 1: Heroku (easiest)
-    - Create account at heroku.com
-    - Add Procfile and runtime.txt
-    - Deploy with git push
-    
-  Option 2: AWS Free Tier
-    - EC2 instance with Flask + nginx
-    - More complex but powerful
-    
-  Option 3: PythonAnywhere
-    - Simplest cloud option for Flask
-    - Free tier available
-    
-  Option 4: Replit
-    - Easiest for beginners
-    - No setup needed
+Exports:
+- participant_summary_current.csv
+- trial_level_current.csv
 
-================================================================================
+===============================================================================
+HOW TO TEST ALL FOUR CONDITIONS
+===============================
 
-TROUBLESHOOTING DECISION TREE
-==============================
+1) Start server:
+   python app.py
 
-  Problem?
-  ├─ Port 5000 already in use
-  │  └─ Change port in app.py: port=5001
-  │
-  ├─ ModuleNotFoundError: Flask
-  │  └─ pip install -r requirements.txt
-  │
-  ├─ Data not saving
-  │  └─ mkdir experiment_data
-  │
-  ├─ Blank browser page
-  │  └─ Refresh (Ctrl+R), wait 3 seconds, try Chrome
-  │
-  ├─ Bar animation stuttering
-  │  └─ Browser/computer limitation, normal on older machines
-  │
-  ├─ Cannot access from phone on same WiFi
-  │  └─ Firewall blocking - open port 5000 or use VPN
-  │
-  └─ Something else?
-     └─ See SETUP.md Troubleshooting section
+2) Open:
+   http://localhost:5000/?test=1
 
-================================================================================
+3) Use test-mode buttons:
+- Skill x Near Miss
+- Skill x Clear Loss
+- Luck x Near Miss
+- Luck x Clear Loss
+
+===============================================================================
+KEY CONFIG VALUES (app.py)
+==========================
+
+MAX_TRIALS = 5
+BAR_DURATION = 1500
+MIN_SPEED = 0.5
+MAX_SPEED = 0.9
+TARGET_ZONE_WIDTH = 10
+NEAR_MISS_BAND = 15
+
+===============================================================================
+VALIDATION
+==========
+
+Run:
+- python test_setup.py
+
+Checks include:
+- Dependencies installed
+- Required files present
+- experiment_data integrity (.jsonl and legacy .json)
+- Current HTML screens and JS functions exist
+- app.py imports successfully
+
+===============================================================================
