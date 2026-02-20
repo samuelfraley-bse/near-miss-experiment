@@ -3,67 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skill Attribution & Near-Miss Effect Study</title>
+    <title>Near-Miss Study</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="container">
-        <!-- Welcome Screen -->
         <div id="welcome-screen" class="screen active">
             <div class="welcome-content">
-                <h1>Skill Attribution</h1>
-                <p class="subtitle"></p>
-
+                <h1>Near-Miss Study</h1>
                 <div class="info-box">
-                    <h2>Welcome!</h2>
-                    <p>In this study, you'll play games and help us with a project..</p>
-                    <p><strong>Duration:</strong> About 10 minutes</p>
-                    <p><strong>What you'll do:</strong> Play games, wager points, and make choices about whether to continue or try something else.</p>
+                    <h2>Welcome</h2>
+                    <p>You will play a bar slider game for 5 rounds.</p>
                 </div>
-
-                <button class="btn btn-primary" onclick="startExperiment()">Start Study</button>
-
+                <button class="btn btn-primary" onclick="startExperiment()">Start</button>
                 <div id="test-mode-panel" class="test-mode-panel hidden">
                     <h3>Test Mode</h3>
-                    <p>Choose which condition to test:</p>
+                    <p>Force a specific condition:</p>
                     <div class="test-mode-buttons">
-                        <button class="btn btn-primary" onclick="startExperiment('skill')">Skill Condition</button>
-                        <button class="btn btn-primary" onclick="startExperiment('luck')">Luck Condition</button>
+                        <button class="btn btn-primary" onclick="startExperiment('skill', 'near_miss')">Skill x Near Miss</button>
+                        <button class="btn btn-primary" onclick="startExperiment('skill', 'clear_loss')">Skill x Clear Loss</button>
+                    </div>
+                    <div class="test-mode-buttons" style="margin-top: 10px;">
+                        <button class="btn btn-primary" onclick="startExperiment('luck', 'near_miss')">Luck x Near Miss</button>
+                        <button class="btn btn-primary" onclick="startExperiment('luck', 'clear_loss')">Luck x Clear Loss</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Frame Intro Screen -->
         <div id="frame-intro-screen" class="screen">
             <div class="frame-content">
                 <h2 id="frame-title"></h2>
-                <div id="frame-description"></div>
-                <button class="btn btn-primary" onclick="proceedToGame()">Start Game</button>
+                <p id="frame-description"></p>
+                <button class="btn btn-primary" onclick="startNextTrial()">Begin Round 1</button>
             </div>
         </div>
 
-        <!-- Wager Screen -->
-        <div id="wager-screen" class="screen">
-            <div class="wager-content">
-                <div class="game-status-bar">
-                    <span class="status-item">Trial <span id="wager-trial-num">1</span> / 5</span>
-                    <span class="status-item">Bankroll: <span id="wager-score">0</span> pts</span>
-                </div>
-                <h2>Place Your Wager</h2>
-                <p class="wager-prompt">How many points do you want to bet on this trial?</p>
-                <div class="wager-buttons" id="wager-buttons"></div>
-                <p class="wager-info">Win = +wager &nbsp;|&nbsp; Loss/Near-miss = -wager</p>
-            </div>
-        </div>
-
-        <!-- Bar Task Screen -->
         <div id="bar-task-screen" class="screen">
             <div class="game-container">
                 <div class="game-status-bar">
-                    <span class="status-item">Trial <span id="bar-trial-num">1</span></span>
-                    <span class="status-item">Wager: <span id="bar-wager">0</span> pts</span>
-                    <span class="status-item">Bankroll: <span id="bar-score">0</span> pts</span>
+                    <span class="status-item">Round <span id="bar-trial-num">1</span> / 5</span>
                 </div>
                 <div class="bar-task">
                     <div class="bar-wrapper">
@@ -71,88 +50,43 @@
                         <div class="bar" id="moving-bar"></div>
                     </div>
                     <div class="instructions" id="bar-instructions">
-                        The red bar will move from left to right. Try to stop it inside the <strong>green target zone</strong>.<br>
-                        Press <strong>SPACE</strong> or click <strong>STOP</strong> when the bar is inside the zone.
+                        Press <strong>SPACE</strong> or click <strong>STOP</strong> when the red bar is in the green zone.
                     </div>
                 </div>
-
                 <button class="btn btn-primary" id="start-trial-btn" onclick="beginTrial()">Start</button>
                 <button class="btn btn-primary hidden" id="stop-btn" onclick="stopBar()">STOP</button>
             </div>
         </div>
 
-        <!-- Slot Machine Screen -->
-        <div id="slot-task-screen" class="screen">
-            <div class="game-container">
-                <div class="game-status-bar">
-                    <span class="status-item">Trial <span id="slot-trial-num">1</span></span>
-                    <span class="status-item">Wager: <span id="slot-wager">0</span> pts</span>
-                    <span class="status-item">Bankroll: <span id="slot-score">0</span> pts</span>
-                </div>
-                <div class="slot-machine">
-                    <div class="slot-cabinet">
-                        <div class="slot-reels">
-                            <div class="slot-reel" id="reel-0">
-                                <div class="reel-inner">
-                                    <span class="reel-symbol">?</span>
-                                </div>
-                            </div>
-                            <div class="slot-reel" id="reel-1">
-                                <div class="reel-inner">
-                                    <span class="reel-symbol">?</span>
-                                </div>
-                            </div>
-                            <div class="slot-reel" id="reel-2">
-                                <div class="reel-inner">
-                                    <span class="reel-symbol">?</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="slot-instructions">
-                        Press <strong>SPIN</strong> to try your luck. The outcome is entirely random.
-                    </div>
-                </div>
-
-                <button class="btn btn-primary" id="spin-btn" onclick="spinSlots()">SPIN</button>
-            </div>
-        </div>
-
-        <!-- Outcome Screen -->
         <div id="outcome-screen" class="screen">
             <div class="outcome-content">
                 <div class="outcome-display">
                     <div class="outcome-text" id="outcome-text"></div>
-                    <div class="outcome-points" id="outcome-points"></div>
-                    <div class="outcome-score">Bankroll: <span id="outcome-score">0</span> pts</div>
+                    <div class="outcome-points" id="outcome-feedback"></div>
                 </div>
-
-                <div class="decision-box">
-                    <h3 id="decision-title">What would you like to do?</h3>
-                    <div class="choice-container">
-                        <button class="choice-btn" id="continue-btn" onclick="handleTrialDecision('continue')">
-                            <span class="choice-icon">🔄</span>
-                            <span class="choice-text" id="continue-choice-text">Play again</span>
-                        </button>
-                        <button class="choice-btn" id="switch-btn" onclick="handleTrialDecision('switch')">
-                            <span class="choice-icon">🔀</span>
-                            <span class="choice-text">Switch to a different game</span>
-                        </button>
-                    </div>
-                </div>
+                <button class="btn btn-primary" id="next-round-btn" onclick="advanceFromOutcome()">Next</button>
             </div>
         </div>
 
-        <!-- Self-Report Screen -->
-        <div id="self-report-screen" class="screen">
+        <div id="post-survey-screen" class="screen">
             <div class="self-report-content">
-                <h2>Quick Check-In</h2>
-                <p class="self-report-intro">Please rate each statement based on your experience so far.</p>
+                <h2>Final Questions</h2>
 
                 <div class="likert-group">
-                    <label class="likert-label">How close did that feel to success?</label>
-                    <div class="likert-scale" id="closeness-scale">
-                        <span class="likert-anchor">Not at all</span>
+                    <label class="likert-label">How many rounds would you want to play next time?</label>
+                    <div class="likert-scale" id="desired-rounds-scale">
+                        <button class="likert-btn" data-value="1">1</button>
+                        <button class="likert-btn" data-value="2">2</button>
+                        <button class="likert-btn" data-value="3">3</button>
+                        <button class="likert-btn" data-value="4">4</button>
+                        <button class="likert-btn" data-value="5">5</button>
+                    </div>
+                </div>
+
+                <div class="likert-group">
+                    <label class="likert-label">How confident are you that your ability can impact outcomes?</label>
+                    <div class="likert-scale" id="confidence-scale">
+                        <span class="likert-anchor">Low</span>
                         <button class="likert-btn" data-value="1">1</button>
                         <button class="likert-btn" data-value="2">2</button>
                         <button class="likert-btn" data-value="3">3</button>
@@ -160,14 +94,14 @@
                         <button class="likert-btn" data-value="5">5</button>
                         <button class="likert-btn" data-value="6">6</button>
                         <button class="likert-btn" data-value="7">7</button>
-                        <span class="likert-anchor">Very much</span>
+                        <span class="likert-anchor">High</span>
                     </div>
                 </div>
 
                 <div class="likert-group">
-                    <label class="likert-label">How much did this outcome depend on your skill?</label>
-                    <div class="likert-scale" id="control-scale">
-                        <span class="likert-anchor">Not at all</span>
+                    <label class="likert-label">How would you rate your accuracy?</label>
+                    <div class="likert-scale" id="accuracy-scale">
+                        <span class="likert-anchor">Low</span>
                         <button class="likert-btn" data-value="1">1</button>
                         <button class="likert-btn" data-value="2">2</button>
                         <button class="likert-btn" data-value="3">3</button>
@@ -175,48 +109,31 @@
                         <button class="likert-btn" data-value="5">5</button>
                         <button class="likert-btn" data-value="6">6</button>
                         <button class="likert-btn" data-value="7">7</button>
-                        <span class="likert-anchor">Very much</span>
+                        <span class="likert-anchor">High</span>
                     </div>
                 </div>
 
-                <div class="likert-group">
-                    <label class="likert-label">"I feel like I could succeed if I try again."</label>
-                    <div class="likert-scale" id="urge-scale">
-                        <span class="likert-anchor">Disagree</span>
-                        <button class="likert-btn" data-value="1">1</button>
-                        <button class="likert-btn" data-value="2">2</button>
-                        <button class="likert-btn" data-value="3">3</button>
-                        <button class="likert-btn" data-value="4">4</button>
-                        <button class="likert-btn" data-value="5">5</button>
-                        <button class="likert-btn" data-value="6">6</button>
-                        <button class="likert-btn" data-value="7">7</button>
-                        <span class="likert-anchor">Agree</span>
-                    </div>
-                </div>
-
-                <button class="btn btn-primary" id="submit-self-report-btn" onclick="submitSelfReport()" disabled>Continue</button>
+                <button class="btn btn-primary" id="submit-survey-btn" onclick="submitPostSurvey()" disabled>Finish</button>
             </div>
         </div>
 
-        <!-- Summary Screen -->
         <div id="summary-screen" class="screen">
             <div class="summary-content">
-                <h2>Session Complete!</h2>
+                <h2>Session Complete</h2>
                 <div class="summary-stats">
                     <div class="summary-stat">
-                        <div class="stat-label">Total Score</div>
-                        <div class="stat-value" id="summary-score">0</div>
+                        <div class="stat-label">Condition</div>
+                        <div class="stat-value" id="summary-condition"></div>
                     </div>
                     <div class="summary-stat">
-                        <div class="stat-label" id="summary-game1-label">Game 1</div>
-                        <div class="stat-value" id="summary-game1-trials">0 trials</div>
+                        <div class="stat-label">Hits</div>
+                        <div class="stat-value" id="summary-hits"></div>
                     </div>
                     <div class="summary-stat">
-                        <div class="stat-label" id="summary-game2-label">Game 2</div>
-                        <div class="stat-value" id="summary-game2-trials">0 trials</div>
+                        <div class="stat-label">Near Misses</div>
+                        <div class="stat-value" id="summary-near-misses"></div>
                     </div>
                 </div>
-                <p class="summary-thanks">Thank you for participating! Your responses help us understand how people make decisions after near-misses.</p>
             </div>
         </div>
     </div>

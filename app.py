@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, jsonify, session
-from collections import Counter
 import random
 import json
 from datetime import datetime
@@ -14,7 +13,6 @@ db = None
 
 if DATABASE_URL:
     from flask_sqlalchemy import SQLAlchemy
-    # Render uses postgres:// but SQLAlchemy needs postgresql://
     if DATABASE_URL.startswith('postgres://'):
         DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
@@ -25,8 +23,8 @@ if DATABASE_URL:
         id = db.Column(db.Integer, primary_key=True)
         participant_id = db.Column(db.String(50))
         timestamp = db.Column(db.String(50))
-        record_type = db.Column(db.String(20))  # 'trial', 'self_report', 'summary'
-        data = db.Column(db.Text)  # Full JSON blob
+        record_type = db.Column(db.String(20))
+        data = db.Column(db.Text)
 
     with app.app_context():
         db.create_all()
@@ -36,46 +34,23 @@ DATA_DIR = 'experiment_data'
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
-# Global experiment configuration
-MAX_TRIALS_PER_GAME = 5
-STARTING_BANKROLL = 10
-MIN_WAGER = 1
-MAX_WAGER = 10
-BAR_DURATION = 1500  # 1.5 seconds in milliseconds
+# Experiment configuration
+MAX_TRIALS = 5
+BAR_DURATION = 1500
 MIN_SPEED = 0.5
 MAX_SPEED = 0.9
-
-# Slot machine configuration
-SLOT_SYMBOLS = ['cherry', 'lemon', 'orange', 'grape', 'bell', 'seven']
-SLOT_SYMBOL_EMOJIS = {
-    'cherry': '🍒', 'lemon': '🍋', 'orange': '🍊',
-    'grape': '🍇', 'bell': '🔔', 'seven': '7️⃣'
-}
-# Predetermined outcome distribution for up to 15 slot trials (~33% each)
-SLOT_OUTCOME_TEMPLATE = [
-    'hit', 'hit', 'hit', 'hit', 'hit',
-    'near_miss', 'near_miss', 'near_miss', 'near_miss', 'near_miss',
-    'loss', 'loss', 'loss', 'loss', 'loss'
-]
-
-SELF_REPORT_INTERVAL = 5  # Show self-report every N trials
+TARGET_ZONE_WIDTH = 10
+NEAR_MISS_BAND = 15
 
 
 def parse_int(value, default=0):
-    """Safely parse integer values from request payloads."""
     try:
         return int(value)
     except (TypeError, ValueError):
         return default
 
 
-def normalize_wager(raw_wager):
-    """Normalize wager value and enforce integer type."""
-    return parse_int(raw_wager, default=0)
-
-
 def save_record(participant_id, record_type, data):
-    """Save a data record to DB or JSON file"""
     timestamp = datetime.now().isoformat()
     data['timestamp'] = timestamp
 
@@ -89,160 +64,131 @@ def save_record(participant_id, record_type, data):
         db.session.add(result)
         db.session.commit()
     else:
-        # Append to participant's JSONL file (one record per line)
         filename = f"{DATA_DIR}/{participant_id}.jsonl"
-        with open(filename, 'a') as f:
+        with open(filename, 'a', encoding='utf-8') as f:
             f.write(json.dumps(data) + '\n')
+
+
+def build_frame(frame_type, loss_frame):
+    if frame_type == 'skill':
+        title = 'Reaction-Time Game'
+        description = (
+            'Test your reaction time speed and skill with this game. '
+            'The bar movement changes somewhat from round to round, within bounds.'
+        )
+        icon = 'TARGET'
+    else:
+        title = 'Game Rounds'
+        description = (
+            'Play the game for several rounds and try your best each time. '
+            'Each round gives immediate feedback on the outcome.'
+        )
+        icon = 'CLOVER'
+
+    loss_notice = ''
+
+    return {
+        'title': title,
+        'description': description,
+        'loss_notice': loss_notice,
+        'icon': icon
+    }
+
+
+def generate_feedback(outcome, distance_from_center):
+    if outcome == 'hit':
+        return 'Hit! Great timing.'
+    if outcome == 'near_miss':
+        return f'So close! You were {distance_from_center:.1f}% from center.'
+    return f'You lost this round. Missed by {distance_from_center:.1f}%.'
 
 
 @app.route('/')
 def index():
-    """Landing page"""
     return render_template('index.html')
 
 
 @app.route('/api/start-session', methods=['POST'])
 def start_session():
-    """Initialize a new participant session"""
-    data = request.json
+    data = request.json or {}
     participant_id = data.get('participant_id') or f"P{random.randint(10000, 99999)}"
 
-    # Allow forcing a game type for test mode
-    force_game_type = data.get('force_game_type')
-    if force_game_type == 'skill':
-        game1_type = 'skill'
-        game2_type = 'luck'
-    elif force_game_type == 'luck':
-        game1_type = 'luck'
-        game2_type = 'skill'
-    else:
-        # Randomly assign first game
-        if random.choice([True, False]):
-            game1_type = 'skill'
-            game2_type = 'luck'
-        else:
-            game1_type = 'luck'
-            game2_type = 'skill'
+    force_frame_type = data.get('force_frame_type')
+    force_loss_frame = data.get('force_loss_frame')
+
+    frame_type = force_frame_type if force_frame_type in ['skill', 'luck'] else random.choice(['skill', 'luck'])
+    loss_frame = force_loss_frame if force_loss_frame in ['near_miss', 'clear_loss'] else random.choice(['near_miss', 'clear_loss'])
+    condition_id = f'{frame_type}_{loss_frame}'
 
     session['participant_id'] = participant_id
-    session['game1_type'] = game1_type
-    session['game2_type'] = game2_type
-    session['current_game'] = 1
-    session['score'] = 0
-    session['bankroll'] = STARTING_BANKROLL
-    session['current_wager'] = 0
-    session['game1_trials'] = []
-    session['game2_trials'] = []
-    session['game1_trial_count'] = 0
-    session['game2_trial_count'] = 0
-    session['self_reports'] = []
-    session['slot_outcomes'] = None
+    session['frame_type'] = frame_type
+    session['loss_frame'] = loss_frame
+    session['condition_id'] = condition_id
+    session['trials'] = []
+    session['trial_count'] = 0
+    session['post_survey'] = None
+    session.modified = True
 
     return jsonify({
+        'success': True,
         'participant_id': participant_id,
-        'game1_type': game1_type,
-        'game2_type': game2_type,
-        'current_game': 1,
-        'score': 0,
-        'bankroll': STARTING_BANKROLL,
-        'starting_bankroll': STARTING_BANKROLL,
-        'max_wager': MAX_WAGER,
-        'max_trials': MAX_TRIALS_PER_GAME,
-        'success': True
+        'frame_type': frame_type,
+        'loss_frame': loss_frame,
+        'condition_id': condition_id,
+        'max_trials': MAX_TRIALS
     })
 
 
-@app.route('/api/get-frame/<game_type>')
-def get_frame(game_type):
-    """Get the frame description for a game type"""
-    frames = {
-        'skill': {
-            'title': 'Skill-Based Game',
-            'description': 'This is a game of skill and control. Your success depends on your timing ability and hand-eye coordination. Each trial, the game will change slightly, within bounds.',
-            'icon': '🎯'
-        },
-        'luck': {
-            'title': 'Luck-Based Game',
-            'description': 'This is a game of pure chance. You will play a slot machine where the outcome is completely random. Just press Spin and see what happens - there is nothing you can do to influence the result.',
-            'icon': '🎰'
-        }
-    }
-    return jsonify(frames.get(game_type, {}))
+@app.route('/api/get-frame', methods=['GET'])
+def get_frame():
+    frame_type = session.get('frame_type')
+    loss_frame = session.get('loss_frame')
+    if frame_type not in ['skill', 'luck'] or loss_frame not in ['near_miss', 'clear_loss']:
+        return jsonify({'error': 'Session not initialized'}), 400
+    return jsonify(build_frame(frame_type, loss_frame))
 
 
 @app.route('/api/generate-bar-trial', methods=['POST'])
 def generate_bar_trial():
-    """Generate a new bar task trial"""
-    data = request.json
-    trial_num = data.get('trial_number', 0)
+    data = request.json or {}
+    trial_num = parse_int(data.get('trial_number'), 0)
 
-    # Generate random bar speed for this trial
     bar_speed = random.uniform(MIN_SPEED, MAX_SPEED)
-
-    # Target zone position (0-100%)
     target_zone_start = random.uniform(30, 50)
-    target_zone_width = 10  # 10% width
-
-    # Optimal stop position (within target zone)
-    optimal_stop = target_zone_start + (target_zone_width / 2)
+    optimal_stop = target_zone_start + (TARGET_ZONE_WIDTH / 2)
 
     return jsonify({
         'trial_number': trial_num,
         'bar_speed': bar_speed,
         'duration': BAR_DURATION,
         'target_zone_start': target_zone_start,
-        'target_zone_width': target_zone_width,
+        'target_zone_width': TARGET_ZONE_WIDTH,
         'optimal_stop': optimal_stop
     })
 
 
 @app.route('/api/evaluate-trial', methods=['POST'])
 def evaluate_trial():
-    """Evaluate a bar trial result with wager scoring"""
-    data = request.json
-    bar_position = data.get('bar_position', 0)
-    target_zone_start = data.get('target_zone_start', 0)
-    target_zone_width = data.get('target_zone_width', 10)
-    trial_number = data.get('trial_number', 0)
-    is_practice = bool(data.get('is_practice', False))
-    wager = normalize_wager(data.get('wager', 0))
+    data = request.json or {}
 
-    # Calculate distance from target
+    bar_position = float(data.get('bar_position', 0))
+    target_zone_start = float(data.get('target_zone_start', 0))
+    target_zone_width = float(data.get('target_zone_width', TARGET_ZONE_WIDTH))
+    trial_number = parse_int(data.get('trial_number'), 0)
+
     target_zone_end = target_zone_start + target_zone_width
     target_center = target_zone_start + (target_zone_width / 2)
 
-    # Determine if hit
     is_hit = target_zone_start <= bar_position <= target_zone_end
-
-    # Calculate distance from center
     distance_from_center = abs(bar_position - target_center)
 
-    # Classify as near-miss if within 10% of target zone
-    is_near_miss = (target_zone_start - 10 <= bar_position < target_zone_start) or \
-                   (target_zone_end < bar_position <= target_zone_end + 10)
+    near_miss_raw = (
+        (target_zone_start - NEAR_MISS_BAND <= bar_position < target_zone_start) or
+        (target_zone_end < bar_position <= target_zone_end + NEAR_MISS_BAND)
+    )
+    loss_frame = session.get('loss_frame', 'clear_loss')
+    is_near_miss = (not is_hit) and near_miss_raw and loss_frame == 'near_miss'
 
-    bankroll_before = parse_int(session.get('bankroll', STARTING_BANKROLL), STARTING_BANKROLL)
-    if not is_practice:
-        max_allowed = bankroll_before
-        if wager < MIN_WAGER or wager > max_allowed:
-            return jsonify({
-                'success': False,
-                'error': f'Invalid wager. Choose between {MIN_WAGER} and {max_allowed}.'
-            }), 400
-    else:
-        wager = 0
-
-    # Score and bankroll: win = +wager, loss/near-miss = -wager
-    points_delta = wager if is_hit else -wager
-    if is_practice:
-        points_delta = 0
-
-    score_after = parse_int(session.get('score', 0), 0) + points_delta
-    bankroll_after = max(0, bankroll_before + points_delta)
-    session['score'] = score_after
-    session['bankroll'] = bankroll_after
-
-    # Determine outcome label
     if is_hit:
         outcome = 'hit'
     elif is_near_miss:
@@ -250,397 +196,119 @@ def evaluate_trial():
     else:
         outcome = 'loss'
 
-    # Store trial in session
-    current_game = session.get('current_game', 1)
-    trials_key = f'game{current_game}_trials'
-    count_key = f'game{current_game}_trial_count'
-
     trial_data = {
+        'record_type': 'trial',
+        'participant_id': session.get('participant_id', 'unknown'),
+        'condition_id': session.get('condition_id'),
+        'frame_type': session.get('frame_type'),
+        'loss_frame': loss_frame,
         'trial_number': trial_number,
-        'game_mode': 'bar',
         'bar_position': round(bar_position, 2),
         'target_zone_start': round(target_zone_start, 2),
         'target_zone_end': round(target_zone_end, 2),
-        'is_hit': is_hit,
-        'is_near_miss': is_near_miss,
-        'outcome': outcome,
         'distance_from_center': round(distance_from_center, 2),
-        'wager': wager,
-        'is_practice': is_practice,
-        'points_delta': points_delta,
-        'score_after': score_after,
-        'bankroll_after': bankroll_after
+        'is_hit': is_hit,
+        'near_miss_raw': near_miss_raw,
+        'is_near_miss': is_near_miss,
+        'outcome': outcome
     }
 
-    if not is_practice:
-        if trials_key not in session:
-            session[trials_key] = []
-        session[trials_key].append(trial_data)
-        session[count_key] = session.get(count_key, 0) + 1
+    trials = session.get('trials', [])
+    trials.append(trial_data)
+    session['trials'] = trials
+    session['trial_count'] = len(trials)
     session.modified = True
+
+    save_record(trial_data['participant_id'], 'trial', trial_data)
 
     return jsonify({
         'success': True,
-        'is_hit': is_hit,
-        'is_near_miss': is_near_miss,
-        'is_practice': is_practice,
-        'outcome': outcome,
-        'distance_from_center': distance_from_center,
-        'bar_position': round(bar_position, 2),
-        'points_delta': points_delta,
-        'score': score_after,
-        'bankroll': bankroll_after,
-        'feedback': generate_feedback(is_hit, is_near_miss, distance_from_center)
-    })
-
-
-def generate_feedback(is_hit, is_near_miss, distance):
-    """Generate feedback message"""
-    if is_hit:
-        return "Hit! Great timing!"
-    elif is_near_miss:
-        return f"Close! Just {distance:.1f}% away from the zone."
-    else:
-        return f"Missed by {distance:.1f}%."
-
-
-@app.route('/api/generate-slot-trial', methods=['POST'])
-def generate_slot_trial():
-    """Generate a pre-determined slot machine trial"""
-    data = request.json
-    trial_num = data.get('trial_number', 0)
-
-    # Initialize slot outcomes on first trial
-    if 'slot_outcomes' not in session or session['slot_outcomes'] is None:
-        outcomes = SLOT_OUTCOME_TEMPLATE.copy()
-        random.shuffle(outcomes)
-        session['slot_outcomes'] = outcomes
-        session.modified = True
-
-    # Get the pre-determined outcome for this trial
-    outcome_index = trial_num - 1
-    if outcome_index < len(session['slot_outcomes']):
-        outcome_type = session['slot_outcomes'][outcome_index]
-    else:
-        outcome_type = random.choice(['hit', 'near_miss', 'loss'])
-
-    reels = generate_slot_reels(outcome_type)
-
-    return jsonify({
-        'trial_number': trial_num,
-        'reels': reels,
-        'reel_emojis': [SLOT_SYMBOL_EMOJIS[s] for s in reels],
-        'spin_durations': [1500, 2000, 2500]
-    })
-
-
-def generate_slot_reels(outcome_type):
-    """Generate three reel symbols to produce the desired outcome type."""
-    symbols = SLOT_SYMBOLS
-
-    if outcome_type == 'hit':
-        chosen = random.choice(symbols)
-        return [chosen, chosen, chosen]
-
-    elif outcome_type == 'near_miss':
-        match_idx = random.randint(0, len(symbols) - 1)
-        match_symbol = symbols[match_idx]
-        direction = random.choice([-1, 1])
-        adjacent_symbol = symbols[(match_idx + direction) % len(symbols)]
-        reels = [match_symbol, match_symbol, match_symbol]
-        # Put the near-miss on the last reel (most dramatic) most of the time
-        miss_pos = 2 if random.random() < 0.7 else random.choice([0, 1])
-        reels[miss_pos] = adjacent_symbol
-        return reels
-
-    else:  # loss
-        # Pick 3 different symbols that aren't adjacent to each other
-        for _ in range(100):
-            indices = random.sample(range(len(symbols)), 3)
-            if all(min(abs(indices[i] - indices[j]),
-                       len(symbols) - abs(indices[i] - indices[j])) > 1
-                   for i in range(3) for j in range(i + 1, 3)):
-                return [symbols[i] for i in indices]
-        # Fallback: just pick 3 different non-adjacent-ish symbols
-        return [symbols[0], symbols[2], symbols[4]]
-
-
-@app.route('/api/evaluate-slot-trial', methods=['POST'])
-def evaluate_slot_trial():
-    """Evaluate a slot machine trial result with wager scoring"""
-    data = request.json
-    reels = data.get('reels', [])
-    trial_number = data.get('trial_number', 0)
-    is_practice = bool(data.get('is_practice', False))
-    wager = normalize_wager(data.get('wager', 0))
-
-    if len(set(reels)) == 1:
-        is_hit = True
-        is_near_miss = False
-        distance_from_center = 0.0
-    elif len(set(reels)) == 2:
-        is_hit = False
-        counts = Counter(reels)
-        match_symbol = counts.most_common(1)[0][0]
-        odd_symbol = [s for s in reels if s != match_symbol][0]
-        match_idx = SLOT_SYMBOLS.index(match_symbol)
-        odd_idx = SLOT_SYMBOLS.index(odd_symbol)
-        symbol_distance = min(abs(match_idx - odd_idx),
-                              len(SLOT_SYMBOLS) - abs(match_idx - odd_idx))
-        is_near_miss = (symbol_distance == 1)
-        distance_from_center = symbol_distance * 5.0
-    else:
-        is_hit = False
-        is_near_miss = False
-        distance_from_center = 15.0
-
-    bankroll_before = parse_int(session.get('bankroll', STARTING_BANKROLL), STARTING_BANKROLL)
-    if not is_practice:
-        max_allowed = bankroll_before
-        if wager < MIN_WAGER or wager > max_allowed:
-            return jsonify({
-                'success': False,
-                'error': f'Invalid wager. Choose between {MIN_WAGER} and {max_allowed}.'
-            }), 400
-    else:
-        wager = 0
-
-    # Score and bankroll: win = +wager, loss/near-miss = -wager
-    points_delta = wager if is_hit else -wager
-    if is_practice:
-        points_delta = 0
-
-    score_after = parse_int(session.get('score', 0), 0) + points_delta
-    bankroll_after = max(0, bankroll_before + points_delta)
-    session['score'] = score_after
-    session['bankroll'] = bankroll_after
-
-    # Determine outcome label
-    if is_hit:
-        outcome = 'hit'
-    elif is_near_miss:
-        outcome = 'near_miss'
-    else:
-        outcome = 'loss'
-
-    # Store trial in session
-    current_game = session.get('current_game', 1)
-    trials_key = f'game{current_game}_trials'
-    count_key = f'game{current_game}_trial_count'
-
-    trial_data = {
         'trial_number': trial_number,
-        'game_mode': 'slot',
-        'reels': reels,
+        'outcome': outcome,
         'is_hit': is_hit,
         'is_near_miss': is_near_miss,
-        'outcome': outcome,
+        'near_miss_raw': near_miss_raw,
         'distance_from_center': round(distance_from_center, 2),
-        'wager': wager,
-        'is_practice': is_practice,
-        'points_delta': points_delta,
-        'score_after': score_after,
-        'bankroll_after': bankroll_after
-    }
-
-    if not is_practice:
-        if trials_key not in session:
-            session[trials_key] = []
-        session[trials_key].append(trial_data)
-        session[count_key] = session.get(count_key, 0) + 1
-    session.modified = True
-
-    feedback = generate_slot_feedback(is_hit, is_near_miss, reels)
-
-    return jsonify({
-        'success': True,
-        'is_hit': is_hit,
-        'is_near_miss': is_near_miss,
-        'is_practice': is_practice,
-        'outcome': outcome,
-        'distance_from_center': distance_from_center,
-        'points_delta': points_delta,
-        'score': score_after,
-        'bankroll': bankroll_after,
-        'feedback': feedback
+        'feedback': generate_feedback(outcome, distance_from_center),
+        'trial_count': session['trial_count'],
+        'max_trials': MAX_TRIALS,
+        'done': session['trial_count'] >= MAX_TRIALS
     })
 
 
-def generate_slot_feedback(is_hit, is_near_miss, reels):
-    """Generate feedback for slot machine trial"""
-    reel_display = ' '.join([SLOT_SYMBOL_EMOJIS.get(s, s) for s in reels])
-    if is_hit:
-        return f"Jackpot! Three matching symbols! {reel_display}"
-    elif is_near_miss:
-        return f"So close! Two out of three matched! {reel_display}"
-    else:
-        return f"No match this time. {reel_display}"
+@app.route('/api/save-post-survey', methods=['POST'])
+def save_post_survey():
+    data = request.json or {}
+    desired_rounds_next_time = parse_int(data.get('desired_rounds_next_time'), 0)
+    confidence_impact = parse_int(data.get('confidence_impact'), 0)
+    self_rated_accuracy = parse_int(data.get('self_rated_accuracy'), 0)
 
+    if desired_rounds_next_time < 1 or desired_rounds_next_time > 5:
+        return jsonify({'success': False, 'error': 'desired_rounds_next_time must be 1-5'}), 400
+    if confidence_impact < 1 or confidence_impact > 7:
+        return jsonify({'success': False, 'error': 'confidence_impact must be 1-7'}), 400
+    if self_rated_accuracy < 1 or self_rated_accuracy > 7:
+        return jsonify({'success': False, 'error': 'self_rated_accuracy must be 1-7'}), 400
 
-@app.route('/api/save-trial-decision', methods=['POST'])
-def save_trial_decision():
-    """Save the continue/switch decision after a trial"""
-    data = request.json
-    decision = data.get('decision')  # 'continue' or 'switch'
-    reaction_time_ms = data.get('reaction_time_ms', 0)
-    trial_number = data.get('trial_number', 0)
-
-    participant_id = session.get('participant_id', 'unknown')
-    current_game = session.get('current_game', 1)
-    game_type = session.get(f'game{current_game}_type', 'unknown')
-    trials_key = f'game{current_game}_trials'
-    count_key = f'game{current_game}_trial_count'
-    trial_count = session.get(count_key, 0)
-    bankroll = parse_int(session.get('bankroll', STARTING_BANKROLL), STARTING_BANKROLL)
-
-    # Update the last trial record with decision and reaction time
-    trials = session.get(trials_key, [])
-    if trials:
-        trials[-1]['decision'] = decision
-        trials[-1]['reaction_time_ms'] = reaction_time_ms
-        session[trials_key] = trials
-        session.modified = True
-
-    # Save trial record to persistent storage
-    trial_record = {
-        'record_type': 'trial',
-        'participant_id': participant_id,
-        'game_number': current_game,
-        'game_type': game_type,
-        'trial_number': trial_number,
-        'decision': decision,
-        'reaction_time_ms': reaction_time_ms,
-        **(trials[-1] if trials else {})
-    }
-    save_record(participant_id, 'trial', trial_record)
-
-    # Determine next action
-    # Bankroll depleted — study ends immediately regardless of game
-    if bankroll <= 0:
-        return jsonify({
-            'next_action': 'end',
-            'score': session.get('score', 0),
-            'bankroll': 0,
-            'reason': 'bankroll_depleted'
-        })
-    elif decision == 'switch' or trial_count >= MAX_TRIALS_PER_GAME:
-        if current_game == 1:
-            # Switch to game 2 — carry bankroll over
-            session['current_game'] = 2
-            session['slot_outcomes'] = None  # Reset slot outcomes for new game
-            session.modified = True
-            return jsonify({
-                'next_action': 'switch_to_game2',
-                'game2_type': session.get('game2_type'),
-                'score': session.get('score', 0),
-                'bankroll': session.get('bankroll', 0)
-            })
-        else:
-            # Done with both games
-            return jsonify({
-                'next_action': 'end',
-                'score': session.get('score', 0),
-                'bankroll': session.get('bankroll', 0)
-            })
-    else:
-        return jsonify({
-            'next_action': 'continue',
-            'score': session.get('score', 0),
-            'bankroll': session.get('bankroll', STARTING_BANKROLL)
-        })
-
-
-@app.route('/api/save-self-report', methods=['POST'])
-def save_self_report():
-    """Save self-report ratings"""
-    data = request.json
-    participant_id = session.get('participant_id', 'unknown')
-    current_game = session.get('current_game', 1)
-    game_type = session.get(f'game{current_game}_type', 'unknown')
-
-    report = {
-        'record_type': 'self_report',
-        'participant_id': participant_id,
-        'game_number': current_game,
-        'game_type': game_type,
-        'after_trial': data.get('after_trial', 0),
-        'closeness': data.get('closeness', 0),
-        'control': data.get('control', 0),
-        'urge': data.get('urge', 0)
+    survey = {
+        'record_type': 'post_survey',
+        'participant_id': session.get('participant_id', 'unknown'),
+        'condition_id': session.get('condition_id'),
+        'frame_type': session.get('frame_type'),
+        'loss_frame': session.get('loss_frame'),
+        'desired_rounds_next_time': desired_rounds_next_time,
+        'confidence_impact': confidence_impact,
+        'self_rated_accuracy': self_rated_accuracy
     }
 
-    # Store in session
-    if 'self_reports' not in session:
-        session['self_reports'] = []
-    session['self_reports'].append(report)
+    session['post_survey'] = survey
     session.modified = True
-
-    # Save to persistent storage
-    save_record(participant_id, 'self_report', report)
-
+    save_record(survey['participant_id'], 'post_survey', survey)
     return jsonify({'success': True})
 
 
 @app.route('/api/get-summary', methods=['GET'])
 def get_summary():
-    """Get final summary of the experiment session"""
     participant_id = session.get('participant_id', 'unknown')
-
-    game1_trials_played = session.get('game1_trial_count', 0)
-    game2_trials_played = session.get('game2_trial_count', 0)
-    game1_type = session.get('game1_type')
-    game2_type = session.get('game2_type')
+    trials = session.get('trials', [])
 
     summary = {
         'record_type': 'summary',
         'participant_id': participant_id,
-        'game_order': f'{game1_type}_first' if game1_type else None,
-        'game1_type': game1_type,
-        'game2_type': game2_type,
-        'game1_trials_played': game1_trials_played,
-        'game2_trials_played': game2_trials_played,
-        'game1_switched': game1_trials_played < MAX_TRIALS_PER_GAME and game2_trials_played > 0,
-        'bankroll_depleted': session.get('bankroll', 0) <= 0,
-        'total_score': session.get('score', 0),
-        'starting_bankroll': STARTING_BANKROLL,
-        'max_wager': MAX_WAGER,
-        'game1_trials': session.get('game1_trials', []),
-        'game2_trials': session.get('game2_trials', []),
-        'all_trials': session.get('game1_trials', []) + session.get('game2_trials', []),
-        'self_reports': session.get('self_reports', []),
-        'max_trials_per_game': MAX_TRIALS_PER_GAME
+        'condition_id': session.get('condition_id'),
+        'frame_type': session.get('frame_type'),
+        'loss_frame': session.get('loss_frame'),
+        'trial_count': len(trials),
+        'max_trials': MAX_TRIALS,
+        'hits': sum(1 for t in trials if t.get('is_hit')),
+        'near_misses': sum(1 for t in trials if t.get('is_near_miss')),
+        'losses': sum(1 for t in trials if t.get('outcome') == 'loss'),
+        'trials': trials,
+        'post_survey': session.get('post_survey')
     }
 
-    # Save summary to persistent storage
     save_record(participant_id, 'summary', summary)
-
     return jsonify(summary)
 
 
 @app.route('/api/export-all-data', methods=['GET'])
 def export_all_data():
-    """Export all collected data as JSON"""
     all_data = []
 
     if db:
-        # Read from PostgreSQL
         results = ExperimentResult.query.all()
-        for r in results:
-            all_data.append(json.loads(r.data))
+        for result in results:
+            all_data.append(json.loads(result.data))
     else:
-        # Read from JSONL files (local development)
         for filename in os.listdir(DATA_DIR):
-            if filename.endswith('.jsonl'):
-                filepath = os.path.join(DATA_DIR, filename)
-                with open(filepath, 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if line:
-                            all_data.append(json.loads(line))
-            elif filename.endswith('.json'):
-                filepath = os.path.join(DATA_DIR, filename)
-                with open(filepath, 'r') as f:
-                    all_data.append(json.load(f))
+            if not filename.endswith('.jsonl'):
+                continue
+            filepath = os.path.join(DATA_DIR, filename)
+            with open(filepath, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        all_data.append(json.loads(line))
 
     return jsonify({
         'total_records': len(all_data),
