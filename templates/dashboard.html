@@ -57,7 +57,7 @@
         </div>
         <div class="export-all">
             <label class="dev-toggle" style="color:white;">
-                <input type="checkbox" id="hide-dev" checked> Hide DEV_ rows
+                <input type="checkbox" id="hide-dev"> Hide DEV_ rows
             </label>
             <button class="btn btn-export" onclick="exportCSV('trials')">↓ trials.csv</button>
             <button class="btn btn-export" onclick="exportCSV('post_surveys')">↓ post_surveys.csv</button>
@@ -132,7 +132,7 @@
 
     <script>
         let allData = { trials: [], post_surveys: [], summaries: [] };
-        let hideDev = true;
+        let hideDev = false;
 
         document.getElementById('hide-dev').addEventListener('change', e => {
             hideDev = e.target.checked;
