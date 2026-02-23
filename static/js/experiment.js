@@ -45,6 +45,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const panel = document.getElementById('test-mode-panel');
         if (panel) panel.classList.remove('hidden');
     }
+
+    const CONDITIONS = {
+        'skill_near_miss':  ['skill', 'near_miss'],
+        'skill_clear_loss': ['skill', 'clear_loss'],
+        'luck_near_miss':   ['luck',  'near_miss'],
+        'luck_clear_loss':  ['luck',  'clear_loss'],
+    };
+    const conditionParam = params.get('condition');
+    if (conditionParam && CONDITIONS[conditionParam]) {
+        const [frameType, lossFrame] = CONDITIONS[conditionParam];
+        // Override the Start button to force this condition
+        const startBtn = document.querySelector('#welcome-screen .btn-primary');
+        if (startBtn) {
+            startBtn.textContent = `Start (${conditionParam.replace(/_/g, ' ')})`;
+            startBtn.onclick = () => startExperiment(frameType, lossFrame);
+        }
+        // Also show test panel so it's clear what mode is active
+        const panel = document.getElementById('test-mode-panel');
+        if (panel) panel.classList.remove('hidden');
+    }
 });
 
 function switchScreen(screenId) {
