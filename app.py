@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, Response
 import random
 import json
 from datetime import datetime
@@ -175,6 +175,50 @@ def generate_feedback(outcome, distance_from_center):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
+
+@app.route('/api/export-csv')
+def export_csv():
+    import csv
+    import io
+    table = request.args.get('table', 'trials')
+
+    output = io.StringIO()
+
+    if db:
+        if table == 'trials':
+            rows = Trial.query.all()
+            fields = ['id','participant_id','timestamp','condition_id','frame_type','loss_frame',
+                      'trial_number','bar_position','target_zone_start','target_zone_end',
+                      'distance_from_center','is_hit','near_miss_raw','is_near_miss','outcome']
+        elif table == 'post_surveys':
+            rows = PostSurvey.query.all()
+            fields = ['id','participant_id','timestamp','condition_id','frame_type','loss_frame',
+                      'desired_rounds_next_time','confidence_impact','self_rated_accuracy']
+        elif table == 'summaries':
+            rows = Summary.query.all()
+            fields = ['id','participant_id','timestamp','condition_id','frame_type','loss_frame',
+                      'trial_count','hits','near_misses','losses']
+        else:
+            return jsonify({'error': 'unknown table'}), 400
+
+        writer = csv.DictWriter(output, fieldnames=fields)
+        writer.writeheader()
+        for r in rows:
+            writer.writerow({f: getattr(r, f) for f in fields})
+    else:
+        output.write('no database connected\n')
+
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={table}.csv'}
+    )
 
 
 @app.route('/api/start-session', methods=['POST'])

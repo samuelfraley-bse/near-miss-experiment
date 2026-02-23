@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard [DEV]</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #2c3e50; }
+
+        .header { background: #2c3e50; color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 18px; font-weight: 600; }
+        .header .badge { background: #e74c3c; color: white; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 10px; }
+        .export-all { display: flex; gap: 8px; }
+        .btn { padding: 7px 14px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; }
+        .btn-export { background: #27ae60; color: white; }
+        .btn-export:hover { background: #219a52; }
+        .btn-back { background: #7f8c8d; color: white; text-decoration: none; display: inline-flex; align-items: center; }
+        .btn-back:hover { background: #6c7a89; }
+
+        .content { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+        .table-section { background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; overflow: hidden; }
+        .table-header { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ecf0f1; }
+        .table-header h2 { font-size: 15px; font-weight: 600; }
+        .row-count { font-size: 12px; color: #7f8c8d; margin-left: 8px; font-weight: 400; }
+        .table-wrapper { overflow-x: auto; max-height: 400px; overflow-y: auto; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        thead { position: sticky; top: 0; z-index: 1; }
+        th { background: #f8f9fa; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 12px; color: #555; border-bottom: 2px solid #e9ecef; white-space: nowrap; }
+        td { padding: 9px 14px; border-bottom: 1px solid #f1f3f4; white-space: nowrap; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f8f9fa; }
+
+        .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+        .pill-hit { background: #d5f5e3; color: #1e8449; }
+        .pill-miss { background: #fde8e8; color: #c0392b; }
+        .pill-near-miss { background: #fef9e7; color: #d68910; }
+        .pill-true { background: #d5f5e3; color: #1e8449; }
+        .pill-false { background: #f2f3f4; color: #7f8c8d; }
+        .pill-dev { background: #ebdef0; color: #7d3c98; }
+
+        .empty { padding: 40px; text-align: center; color: #aab; font-size: 14px; }
+        .loading { padding: 40px; text-align: center; color: #aab; font-size: 14px; }
+        .filter-bar { display: flex; align-items: center; gap: 8px; }
+        .filter-input { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; width: 180px; }
+        .dev-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #7f8c8d; }
+        .dev-toggle input { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="display:flex; align-items:center;">
+            <h1>Data Dashboard</h1>
+            <span class="badge">DEV</span>
+        </div>
+        <div class="export-all">
+            <label class="dev-toggle" style="color:white;">
+                <input type="checkbox" id="hide-dev" checked> Hide DEV_ rows
+            </label>
+            <button class="btn btn-export" onclick="exportCSV('trials')">↓ trials.csv</button>
+            <button class="btn btn-export" onclick="exportCSV('post_surveys')">↓ post_surveys.csv</button>
+            <button class="btn btn-export" onclick="exportCSV('summaries')">↓ summaries.csv</button>
+            <a href="/" class="btn btn-back">← App</a>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="table-section">
+            <div class="table-header">
+                <div><h2>Trials <span class="row-count" id="trials-count"></span></h2></div>
+                <div class="filter-bar">
+                    <input class="filter-input" placeholder="Filter..." oninput="filterTable('trials-table', this.value)">
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <div class="loading" id="trials-loading">Loading...</div>
+                <table id="trials-table" style="display:none">
+                    <thead><tr>
+                        <th>participant_id</th><th>timestamp</th><th>condition_id</th>
+                        <th>frame_type</th><th>loss_frame</th><th>trial_number</th>
+                        <th>bar_position</th><th>target_zone_start</th><th>target_zone_end</th>
+                        <th>distance_from_center</th><th>outcome</th><th>is_hit</th>
+                        <th>is_near_miss</th><th>near_miss_raw</th>
+                    </tr></thead>
+                    <tbody id="trials-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="table-section">
+            <div class="table-header">
+                <div><h2>Post Surveys <span class="row-count" id="surveys-count"></span></h2></div>
+                <div class="filter-bar">
+                    <input class="filter-input" placeholder="Filter..." oninput="filterTable('surveys-table', this.value)">
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <div class="loading" id="surveys-loading">Loading...</div>
+                <table id="surveys-table" style="display:none">
+                    <thead><tr>
+                        <th>participant_id</th><th>timestamp</th><th>condition_id</th>
+                        <th>frame_type</th><th>loss_frame</th>
+                        <th>desired_rounds_next_time</th><th>confidence_impact</th><th>self_rated_accuracy</th>
+                    </tr></thead>
+                    <tbody id="surveys-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="table-section">
+            <div class="table-header">
+                <div><h2>Summaries <span class="row-count" id="summaries-count"></span></h2></div>
+                <div class="filter-bar">
+                    <input class="filter-input" placeholder="Filter..." oninput="filterTable('summaries-table', this.value)">
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <div class="loading" id="summaries-loading">Loading...</div>
+                <table id="summaries-table" style="display:none">
+                    <thead><tr>
+                        <th>participant_id</th><th>timestamp</th><th>condition_id</th>
+                        <th>frame_type</th><th>loss_frame</th>
+                        <th>trial_count</th><th>hits</th><th>near_misses</th><th>losses</th>
+                    </tr></thead>
+                    <tbody id="summaries-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allData = { trials: [], post_surveys: [], summaries: [] };
+        let hideDev = true;
+
+        document.getElementById('hide-dev').addEventListener('change', e => {
+            hideDev = e.target.checked;
+            renderAll();
+        });
+
+        function pill(value, trueClass, falseClass) {
+            const cls = value ? trueClass : falseClass;
+            return `<span class="pill ${cls}">${value}</span>`;
+        }
+
+        function outcomePill(v) {
+            const cls = v === 'hit' ? 'pill-hit' : v === 'near_miss' ? 'pill-near-miss' : 'pill-miss';
+            return `<span class="pill ${cls}">${v}</span>`;
+        }
+
+        function pidCell(v) {
+            const cls = String(v).startsWith('DEV_') ? 'pill-dev' : '';
+            return cls ? `<span class="pill ${cls}">${v}</span>` : v;
+        }
+
+        function filterRows(data) {
+            return hideDev ? data.filter(r => !String(r.participant_id).startsWith('DEV_')) : data;
+        }
+
+        function renderTrials(data) {
+            const body = document.getElementById('trials-body');
+            const rows = filterRows(data);
+            document.getElementById('trials-count').textContent = `(${rows.length} rows)`;
+            if (!rows.length) { body.innerHTML = '<tr><td colspan="14" class="empty">No data</td></tr>'; return; }
+            body.innerHTML = rows.map(r => `<tr>
+                <td>${pidCell(r.participant_id)}</td>
+                <td>${r.timestamp?.slice(0,19) ?? ''}</td>
+                <td>${r.condition_id ?? ''}</td>
+                <td>${r.frame_type ?? ''}</td>
+                <td>${r.loss_frame ?? ''}</td>
+                <td>${r.trial_number ?? ''}</td>
+                <td>${r.bar_position?.toFixed(2) ?? ''}</td>
+                <td>${r.target_zone_start?.toFixed(2) ?? ''}</td>
+                <td>${r.target_zone_end?.toFixed(2) ?? ''}</td>
+                <td>${r.distance_from_center?.toFixed(2) ?? ''}</td>
+                <td>${outcomePill(r.outcome)}</td>
+                <td>${pill(r.is_hit, 'pill-true', 'pill-false')}</td>
+                <td>${pill(r.is_near_miss, 'pill-true', 'pill-false')}</td>
+                <td>${pill(r.near_miss_raw, 'pill-true', 'pill-false')}</td>
+            </tr>`).join('');
+        }
+
+        function renderSurveys(data) {
+            const body = document.getElementById('surveys-body');
+            const rows = filterRows(data);
+            document.getElementById('surveys-count').textContent = `(${rows.length} rows)`;
+            if (!rows.length) { body.innerHTML = '<tr><td colspan="8" class="empty">No data</td></tr>'; return; }
+            body.innerHTML = rows.map(r => `<tr>
+                <td>${pidCell(r.participant_id)}</td>
+                <td>${r.timestamp?.slice(0,19) ?? ''}</td>
+                <td>${r.condition_id ?? ''}</td>
+                <td>${r.frame_type ?? ''}</td>
+                <td>${r.loss_frame ?? ''}</td>
+                <td>${r.desired_rounds_next_time ?? ''}</td>
+                <td>${r.confidence_impact ?? ''}</td>
+                <td>${r.self_rated_accuracy ?? ''}</td>
+            </tr>`).join('');
+        }
+
+        function renderSummaries(data) {
+            const body = document.getElementById('summaries-body');
+            const rows = filterRows(data);
+            document.getElementById('summaries-count').textContent = `(${rows.length} rows)`;
+            if (!rows.length) { body.innerHTML = '<tr><td colspan="9" class="empty">No data</td></tr>'; return; }
+            body.innerHTML = rows.map(r => `<tr>
+                <td>${pidCell(r.participant_id)}</td>
+                <td>${r.timestamp?.slice(0,19) ?? ''}</td>
+                <td>${r.condition_id ?? ''}</td>
+                <td>${r.frame_type ?? ''}</td>
+                <td>${r.loss_frame ?? ''}</td>
+                <td>${r.trial_count ?? ''}</td>
+                <td>${r.hits ?? ''}</td>
+                <td>${r.near_misses ?? ''}</td>
+                <td>${r.losses ?? ''}</td>
+            </tr>`).join('');
+        }
+
+        function renderAll() {
+            renderTrials(allData.trials);
+            renderSurveys(allData.post_surveys);
+            renderSummaries(allData.summaries);
+        }
+
+        function filterTable(tableId, query) {
+            const q = query.toLowerCase();
+            document.querySelectorAll(`#${tableId} tbody tr`).forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+            });
+        }
+
+        function exportCSV(table) {
+            window.location.href = `/api/export-csv?table=${table}`;
+        }
+
+        async function loadData() {
+            const res = await fetch('/api/export-all-data');
+            const json = await res.json();
+
+            allData.trials = json.data.filter(r => r.record_type === 'trial');
+            allData.post_surveys = json.data.filter(r => r.record_type === 'post_survey');
+            allData.summaries = json.data.filter(r => r.record_type === 'summary');
+
+            ['trials', 'surveys', 'summaries'].forEach(id => {
+                document.getElementById(`${id}-loading`).style.display = 'none';
+                const tableId = id === 'surveys' ? 'surveys-table' : `${id}-table`;
+                document.getElementById(tableId).style.display = 'table';
+            });
+
+            renderAll();
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
