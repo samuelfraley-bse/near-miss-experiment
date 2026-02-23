@@ -1,6 +1,6 @@
 ﻿# Project Status (Current App)
 
-Last updated: 2026-02-20
+Last updated: 2026-02-23
 
 ## What the app currently does
 
@@ -150,6 +150,39 @@ Prompt 8: Refactor proposal
 Propose a refactor plan that separates route handlers, experiment logic, and persistence into modules while keeping behavior identical.
 Include target file structure and migration steps in order.
 ```
+
+---
+
+## Stage history
+
+### Stage 1 — Core experiment (pre-2026-02-23)
+- Flask app with 2×2 condition design (frame_type × loss_frame)
+- Bar-timing task, 5 rounds per session
+- 3-item post-survey, session summary screen
+- Local `.jsonl` file fallback for data storage
+- Test mode via `?test=1` URL param
+
+### Stage 2 — Supabase integration (2026-02-23)
+- Connected to Supabase PostgreSQL via `DATABASE_URL` env var
+- Switched from `psycopg2` to `psycopg[binary]` for Python 3.13 compatibility
+- Used Supabase session pooler URL to fix IPv6 connectivity from Render
+- Replaced single `experiment_result` table (JSON blob) with three flat tables:
+  - `trials` — one row per trial with all trial-level fields as columns
+  - `post_surveys` — one row per participant with survey responses
+  - `summaries` — one row per session with aggregate counts
+- Added `python-dotenv` for local `.env` support
+
+### Stage 3 — Dev mode and dashboard (2026-02-23)
+- Added `?dev=1` URL param: shows 4 condition buttons, tags data as `DEV_XXXXX`
+- Added `/dashboard` route with:
+  - Three scrollable tables (trials, post_surveys, summaries)
+  - Per-table text filter
+  - Toggle to hide/show DEV_ rows
+  - Per-table CSV export buttons
+- Added "Data Dashboard →" button to dev mode panel
+- Added `/api/export-csv?table=<name>` endpoint for CSV download
+
+---
 
 ## Suggested teammate workflow with AI
 

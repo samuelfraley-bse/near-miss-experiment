@@ -1,32 +1,72 @@
-﻿# Near-Miss Study (Current Build)
+# Near-Miss Study
 
-**How to test all 4 conditions locally:**
-**1) Run `python app.py`**
-**2) Open `http://localhost:5000/?test=1`**
-**3) Click one of the four buttons:**
-**- Skill x Near Miss**
-**- Skill x Clear Loss**
-**- Luck x Near Miss**
-**- Luck x Clear Loss**
-
-A Flask-based behavioral experiment app testing a 2x2 condition design:
+A Flask-based behavioral experiment testing a 2×2 condition design:
 - `frame_type`: `skill` or `luck`
 - `loss_frame`: `near_miss` or `clear_loss`
 
-## Current Status
+Deployed on Render. Data stored in Supabase (PostgreSQL).
 
-This README reflects the current implementation in:
-- `app.py`
-- `templates/index.html`
-- `static/js/experiment.js`
+---
 
-Current behavior:
-- One gameplay type is active in the UI: a bar-timing task.
-- Each participant completes 5 rounds (`MAX_TRIALS = 5`).
-- After rounds, participants complete a 3-item post-survey.
-- End screen shows condition and performance summary.
+## Quick links (once deployed)
 
-## Quick Start
+| Link | Purpose |
+|---|---|
+| `https://your-app.onrender.com/` | Live experiment (random condition) |
+| `https://your-app.onrender.com/?dev=1` | Dev mode — force any condition, link to dashboard |
+| `https://your-app.onrender.com/dashboard` | Data dashboard — view and export all tables |
+
+---
+
+## Collaborating on this project
+
+### What's safe to change freely
+
+Anyone can vibe-code changes to these without coordinating:
+
+- **UI copy and layout** (`templates/index.html`) — welcome text, button labels, screen order
+- **Styling** (`static/css/style.css`) — colors, fonts, spacing
+- **Frontend behavior** (`static/js/experiment.js`) — animations, screen transitions, client-side logic
+- **Game parameters** (`app.py` top constants) — `MAX_TRIALS`, `BAR_DURATION`, `TARGET_ZONE_WIDTH`, etc.
+- **Frame copy** — the `build_frame()` function in `app.py`
+
+### What requires a Supabase schema change (coordinate with Sam first)
+
+If you change **what data gets saved** — adding a survey question, adding a new trial field, removing a column — the Supabase database schema must also be updated. The app and the database must stay in sync.
+
+**Examples that need coordination:**
+- Adding a 4th survey question → new column needed in `post_surveys` table
+- Logging reaction time on trials → new column needed in `trials` table
+- Renaming a field → column rename needed in Supabase
+
+**Examples that do NOT need coordination:**
+- Rewording a survey question (same field, different label)
+- Changing the game animation or speed
+- Changing colors or layout
+
+### How to handle a schema change safely
+
+1. **Tell Sam** what new field you want to add and what type (integer, float, text, boolean)
+2. Sam adds the column in Supabase SQL Editor:
+   ```sql
+   ALTER TABLE trials ADD COLUMN reaction_time_ms INTEGER;
+   ```
+3. Sam updates the SQLAlchemy model in `app.py` to match
+4. Sam updates `save_record()` to populate the new field
+5. Then you can add it to the frontend safely
+
+> **Why this matters:** If you add a field in the frontend but the database column doesn't exist, the app will crash on save. If the model has a column Supabase doesn't have, the app crashes on startup.
+
+### Best workflow for vibe coding together
+
+- **Before starting**: pull the latest from `master`
+- **UI/JS/CSS changes**: work directly on `master`, push when done
+- **Anything touching data schema**: open a quick chat with Sam before pushing
+- **If unsure**: check if your change touches `save_record()`, the model classes (`Trial`, `PostSurvey`, `Summary`), or any dict that gets saved — if yes, coordinate
+
+---
+
+## Local setup
 
 ### 1. Install dependencies
 
@@ -34,104 +74,112 @@ Current behavior:
 pip install -r requirements.txt
 ```
 
-### 2. Run server
+### 2. Set up environment
+
+Create a `.env` file in the project root (already in `.gitignore`):
+
+```
+DATABASE_URL=postgresql://postgres.xxxxx:password@aws-0-region.pooler.supabase.com:5432/postgres
+SECRET_KEY=something-random
+```
+
+Without `DATABASE_URL`, the app falls back to saving `.jsonl` files locally in `experiment_data/`.
+
+### 3. Run
 
 ```bash
 python app.py
 ```
 
-Server URL:
-- `http://localhost:5000`
+Open `http://localhost:5000`
 
-### 3. Optional test mode
+### 4. Dev/test mode
 
-Use:
-- `http://localhost:5000/?test=1`
+```
+http://localhost:5000/?dev=1
+```
 
-This reveals buttons to force condition assignment for QA.
+Shows all 4 condition buttons. Data saved with `DEV_` prefix on participant ID so it can be filtered out.
 
-## Participant Flow
+---
 
-1. Welcome screen
-- Start button begins session.
-- In test mode, condition can be forced before start.
+## Participant flow
 
-2. Session initialization (`POST /api/start-session`)
-- Assigns participant ID.
-- Sets condition (`frame_type`, `loss_frame`, `condition_id`).
-- Initializes session state.
+1. **Welcome screen** — click Start (random condition) or use dev mode to force one
+2. **Session start** (`POST /api/start-session`) — assigns participant ID and condition
+3. **Frame intro** (`GET /api/get-frame`) — shows skill vs luck framing text
+4. **Trial loop** (5 rounds)
+   - `POST /api/generate-bar-trial` — randomizes bar speed and target zone
+   - Participant presses Space or STOP to stop the bar
+   - `POST /api/evaluate-trial` — scores as `hit`, `near_miss`, or `loss`
+   - Near misses only labeled when `loss_frame = near_miss`
+5. **Post-survey** (`POST /api/save-post-survey`) — 3 questions
+6. **Summary** (`GET /api/get-summary`) — shows results, saves final record
 
-3. Frame intro (`GET /api/get-frame`)
-- Displays text based on `frame_type`.
+---
 
-4. Trial loop (5 rounds)
-- `POST /api/generate-bar-trial` creates bar config.
-- Participant stops moving bar via Space or STOP button.
-- `POST /api/evaluate-trial` scores each trial as `hit`, `near_miss`, or `loss`.
-- Near misses are only labeled when `loss_frame = near_miss`.
+## Database schema
 
-5. Post-survey (`POST /api/save-post-survey`)
-- `desired_rounds_next_time` (1-5)
-- `confidence_impact` (1-7)
-- `self_rated_accuracy` (1-7)
+Three tables in Supabase (auto-created on first deploy):
 
-6. Summary (`GET /api/get-summary`)
-- Shows condition, hits, near misses, and completed session data.
+**`trials`** — one row per trial
+| Field | Type |
+|---|---|
+| participant_id, condition_id, frame_type, loss_frame | string |
+| trial_number | integer |
+| bar_position, target_zone_start, target_zone_end, distance_from_center | float |
+| is_hit, near_miss_raw, is_near_miss | boolean |
+| outcome | `hit` / `near_miss` / `loss` |
 
-## Data Storage
+**`post_surveys`** — one row per participant
+| Field | Type |
+|---|---|
+| participant_id, condition_id, frame_type, loss_frame | string |
+| desired_rounds_next_time | integer (1–5) |
+| confidence_impact, self_rated_accuracy | integer (1–7) |
 
-Two storage paths are supported:
+**`summaries`** — one row per session
+| Field | Type |
+|---|---|
+| participant_id, condition_id, frame_type, loss_frame | string |
+| trial_count, hits, near_misses, losses | integer |
 
-1. PostgreSQL mode (if `DATABASE_URL` is set)
-- Uses SQLAlchemy model `ExperimentResult`.
+---
 
-2. Local fallback (default)
-- Writes newline-delimited JSON to:
-- `experiment_data/<participant_id>.jsonl`
+## Game config (`app.py`)
 
-Records saved:
-- `trial`
-- `post_survey`
-- `summary`
+```python
+MAX_TRIALS = 5
+BAR_DURATION = 1500       # ms
+MIN_SPEED = 0.5
+MAX_SPEED = 0.9
+TARGET_ZONE_WIDTH = 10    # % of bar width
+NEAR_MISS_BAND = 15       # % either side of target zone
+```
 
-Export endpoint:
-- `GET /api/export-all-data`
+---
 
-## Config (app.py)
+## Project files
 
-- `MAX_TRIALS = 5`
-- `BAR_DURATION = 1500`
-- `MIN_SPEED = 0.5`
-- `MAX_SPEED = 0.9`
-- `TARGET_ZONE_WIDTH = 10`
-- `NEAR_MISS_BAND = 15`
+| File | Purpose |
+|---|---|
+| `app.py` | Flask routes, condition logic, DB models, persistence |
+| `templates/index.html` | Experiment UI screens |
+| `templates/dashboard.html` | Data dashboard (view/export tables) |
+| `static/js/experiment.js` | Client state machine and API calls |
+| `static/css/style.css` | Styling |
+| `requirements.txt` | Python dependencies |
+| `.env` | Local secrets (not committed) |
+| `STATUS.md` | Implementation history and notes |
 
-## Basic QA Checklist
+---
 
-1. Run all four test-mode conditions from `?test=1`.
-2. Verify frame copy changes between `skill` and `luck`.
-3. In `clear_loss`, confirm near-miss-looking attempts are labeled loss.
-4. Submit post-survey and verify summary loads.
-5. Confirm records appear in `experiment_data/*.jsonl`.
-6. Check `http://localhost:5000/api/export-all-data` returns records.
+## Data dashboard
 
-## Project Files
+Visit `/dashboard` to see all three tables with live data, row counts, and per-table CSV export. Has a toggle to hide/show `DEV_` rows.
 
-- `app.py`: Flask routes, condition assignment, trial evaluation, persistence
-- `templates/index.html`: Screen layout and test-mode buttons
-- `static/js/experiment.js`: Client state machine and API calls
-- `static/css/style.css`: Styling
-- `analyze_data.py`: Local analysis helper script
-- `STATUS.md`: Up-to-date implementation notes and AI prompt bank
+## Filtering out dev data in Supabase
 
-## Troubleshooting
-
-Port in use:
-- Change `port=5000` to another port in `app.py`.
-
-Missing dependencies:
-- Re-run `pip install -r requirements.txt`.
-
-No saved data:
-- Ensure `experiment_data/` is writable.
-
+```sql
+SELECT * FROM trials WHERE participant_id NOT LIKE 'DEV_%';
+```
