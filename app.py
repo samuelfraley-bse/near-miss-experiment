@@ -26,10 +26,31 @@ if DATABASE_URL:
 
     class ExperimentResult(db.Model):
         id = db.Column(db.Integer, primary_key=True)
+        record_type = db.Column(db.String(20))
         participant_id = db.Column(db.String(50))
         timestamp = db.Column(db.String(50))
-        record_type = db.Column(db.String(20))
-        data = db.Column(db.Text)
+        condition_id = db.Column(db.String(50))
+        frame_type = db.Column(db.String(20))
+        loss_frame = db.Column(db.String(20))
+        # Trial fields
+        trial_number = db.Column(db.Integer)
+        bar_position = db.Column(db.Float)
+        target_zone_start = db.Column(db.Float)
+        target_zone_end = db.Column(db.Float)
+        distance_from_center = db.Column(db.Float)
+        is_hit = db.Column(db.Boolean)
+        near_miss_raw = db.Column(db.Boolean)
+        is_near_miss = db.Column(db.Boolean)
+        outcome = db.Column(db.String(20))
+        # Post-survey fields
+        desired_rounds_next_time = db.Column(db.Integer)
+        confidence_impact = db.Column(db.Integer)
+        self_rated_accuracy = db.Column(db.Integer)
+        # Summary fields
+        trial_count = db.Column(db.Integer)
+        hits = db.Column(db.Integer)
+        near_misses = db.Column(db.Integer)
+        losses = db.Column(db.Integer)
 
     with app.app_context():
         db.create_all()
@@ -61,10 +82,28 @@ def save_record(participant_id, record_type, data):
 
     if db:
         result = ExperimentResult(
+            record_type=record_type,
             participant_id=participant_id,
             timestamp=timestamp,
-            record_type=record_type,
-            data=json.dumps(data)
+            condition_id=data.get('condition_id'),
+            frame_type=data.get('frame_type'),
+            loss_frame=data.get('loss_frame'),
+            trial_number=data.get('trial_number'),
+            bar_position=data.get('bar_position'),
+            target_zone_start=data.get('target_zone_start'),
+            target_zone_end=data.get('target_zone_end'),
+            distance_from_center=data.get('distance_from_center'),
+            is_hit=data.get('is_hit'),
+            near_miss_raw=data.get('near_miss_raw'),
+            is_near_miss=data.get('is_near_miss'),
+            outcome=data.get('outcome'),
+            desired_rounds_next_time=data.get('desired_rounds_next_time'),
+            confidence_impact=data.get('confidence_impact'),
+            self_rated_accuracy=data.get('self_rated_accuracy'),
+            trial_count=data.get('trial_count'),
+            hits=data.get('hits'),
+            near_misses=data.get('near_misses'),
+            losses=data.get('losses'),
         )
         db.session.add(result)
         db.session.commit()
@@ -302,8 +341,22 @@ def export_all_data():
 
     if db:
         results = ExperimentResult.query.all()
-        for result in results:
-            all_data.append(json.loads(result.data))
+        for r in results:
+            row = {
+                'id': r.id, 'record_type': r.record_type,
+                'participant_id': r.participant_id, 'timestamp': r.timestamp,
+                'condition_id': r.condition_id, 'frame_type': r.frame_type,
+                'loss_frame': r.loss_frame, 'trial_number': r.trial_number,
+                'bar_position': r.bar_position, 'target_zone_start': r.target_zone_start,
+                'target_zone_end': r.target_zone_end, 'distance_from_center': r.distance_from_center,
+                'is_hit': r.is_hit, 'near_miss_raw': r.near_miss_raw,
+                'is_near_miss': r.is_near_miss, 'outcome': r.outcome,
+                'desired_rounds_next_time': r.desired_rounds_next_time,
+                'confidence_impact': r.confidence_impact, 'self_rated_accuracy': r.self_rated_accuracy,
+                'trial_count': r.trial_count, 'hits': r.hits,
+                'near_misses': r.near_misses, 'losses': r.losses,
+            }
+            all_data.append({k: v for k, v in row.items() if v is not None})
     else:
         for filename in os.listdir(DATA_DIR):
             if not filename.endswith('.jsonl'):
