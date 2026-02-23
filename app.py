@@ -180,7 +180,9 @@ def index():
 @app.route('/api/start-session', methods=['POST'])
 def start_session():
     data = request.json or {}
-    participant_id = data.get('participant_id') or f"P{random.randint(10000, 99999)}"
+    is_dev = data.get('is_dev', False)
+    prefix = 'DEV_' if is_dev else 'P'
+    participant_id = data.get('participant_id') or f"{prefix}{random.randint(10000, 99999)}"
 
     force_frame_type = data.get('force_frame_type')
     force_loss_frame = data.get('force_loss_frame')
