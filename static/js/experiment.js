@@ -117,6 +117,13 @@ function setupBarTask(config) {
     targetZone.style.width = config.target_zone_width + '%';
     const bar = document.getElementById('moving-bar');
     bar.style.left = '0%';
+
+    const instructions = document.getElementById('bar-instructions');
+    if (experimentState.frameType === 'luck') {
+        instructions.innerHTML = 'Press <strong>SPACE</strong> or click <strong>STOP</strong> to reveal your result.';
+    } else {
+        instructions.innerHTML = 'Press <strong>SPACE</strong> or click <strong>STOP</strong> when the red bar is in the green zone.';
+    }
 }
 
 function beginTrial() {
@@ -128,22 +135,40 @@ function beginTrial() {
 function startBarAnimation() {
     const bar = document.getElementById('moving-bar');
     const startTime = Date.now();
+    const isLuck = experimentState.frameType === 'luck';
     const duration = experimentState.currentTrialConfig.duration || 1500;
     const barSpeed = experimentState.currentTrialConfig.bar_speed || 0.7;
     experimentState.barRunning = true;
 
     const animate = () => {
         const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const basePosition = progress * 100;
-        const position = basePosition + (Math.sin(elapsed / 100) * barSpeed * 5);
-        experimentState.barPosition = Math.max(0, Math.min(position, 100));
-        bar.style.left = experimentState.barPosition + '%';
+        let position;
 
-        if (progress < 1 && experimentState.barRunning) {
-            experimentState.barAnimationId = requestAnimationFrame(animate);
-        } else if (progress >= 1 && experimentState.barRunning) {
-            stopBar();
+        if (isLuck) {
+            // Slow ping-pong left-right, no auto-stop
+            const pingPongPeriod = 2800;
+            const t = (elapsed % pingPongPeriod) / pingPongPeriod;
+            const phase = t < 0.5 ? t * 2 : 2 - t * 2; // triangle wave 0→1→0
+            position = 5 + phase * 90;
+            position = Math.max(2, Math.min(position, 98));
+        } else {
+            const progress = Math.min(elapsed / duration, 1);
+            const basePosition = progress * 100;
+            position = basePosition + (Math.sin(elapsed / 100) * barSpeed * 5);
+            position = Math.max(0, Math.min(position, 100));
+        }
+
+        experimentState.barPosition = position;
+        bar.style.left = position + '%';
+
+        if (experimentState.barRunning) {
+            if (isLuck) {
+                experimentState.barAnimationId = requestAnimationFrame(animate);
+            } else if (elapsed / duration < 1) {
+                experimentState.barAnimationId = requestAnimationFrame(animate);
+            } else {
+                stopBar();
+            }
         }
     };
 
@@ -155,6 +180,13 @@ function stopBar() {
     experimentState.barRunning = false;
     cancelAnimationFrame(experimentState.barAnimationId);
     document.getElementById('stop-btn').classList.add('hidden');
+
+    if (experimentState.frameType === 'luck') {
+        const finalPos = experimentState.currentTrialConfig.luck_final_position;
+        experimentState.barPosition = finalPos;
+        document.getElementById('moving-bar').style.left = finalPos + '%';
+    }
+
     evaluateTrial();
 }
 
