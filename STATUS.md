@@ -182,6 +182,22 @@ Include target file structure and migration steps in order.
 - Added "Data Dashboard →" button to dev mode panel
 - Added `/api/export-csv?table=<name>` endpoint for CSV download
 
+### Stage 4 — Luck condition redesign (2026-02-27)
+- Luck condition now has genuinely different mechanics from skill condition:
+  - Bar moves in a slow left-right ping-pong (2.8s per cycle), no auto-stop
+  - Clicking STOP teleports the bar to a server-predetermined position (not where it was visually)
+  - Instructions for luck rounds say "Press STOP to reveal your result" (not "land in the green zone")
+- Outcome rigging for luck condition (`generate_bar_trial` in `app.py`):
+  - Trials 1–3: genuinely random final position (0–100%, can hit or miss)
+  - Trials 4–5: guaranteed near-miss position (within NEAR_MISS_BAND of target zone edges)
+  - luck × near_miss: trials 4–5 labeled "So close!" (near miss)
+  - luck × clear_loss: same positions, labeled "You lost this round." (no near-miss label)
+  - No schema change — existing `evaluate-trial` logic handles labeling via `loss_frame`
+- Frame intro screen now explicitly describes the condition type:
+  - Skill: "Reaction-Time Challenge — your timing determines where the bar stops"
+  - Luck: "Luck-Based Game — result determined by chance, not when you click"
+- Added `venv/` setup; local dev runs without `DATABASE_URL` using `.jsonl` fallback
+
 ---
 
 ## Suggested teammate workflow with AI
