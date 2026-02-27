@@ -68,13 +68,38 @@ If you change **what data gets saved** — adding a survey question, adding a ne
 
 ## Local setup
 
-### 1. Install dependencies
+### 1. Create and activate a virtual environment
 
-```bash
+```powershell
+python -m venv venv
+.\venv\Scripts\activate
+```
+
+### 2. Install dependencies
+
+```powershell
 pip install -r requirements.txt
 ```
 
-### 2. Set up environment
+### 3. Run (no database needed for local dev)
+
+```powershell
+python app.py
+```
+
+Open `http://localhost:5000`
+
+Without `DATABASE_URL` set, the app saves `.jsonl` files to `experiment_data/` — fine for local testing.
+
+### 4. Dev mode
+
+```
+http://localhost:5000/?dev=1
+```
+
+Shows all 4 condition buttons. Data saved with `DEV_` prefix on participant ID so it can be filtered out.
+
+### 5. Connecting to Supabase locally (optional — data analysis only)
 
 Create a `.env` file in the project root (already in `.gitignore`):
 
@@ -83,23 +108,7 @@ DATABASE_URL=postgresql://postgres.xxxxx:password@aws-0-region.pooler.supabase.c
 SECRET_KEY=something-random
 ```
 
-Without `DATABASE_URL`, the app falls back to saving `.jsonl` files locally in `experiment_data/`.
-
-### 3. Run
-
-```bash
-python app.py
-```
-
-Open `http://localhost:5000`
-
-### 4. Dev/test mode
-
-```
-http://localhost:5000/?dev=1
-```
-
-Shows all 4 condition buttons. Data saved with `DEV_` prefix on participant ID so it can be filtered out.
+Use the **session pooler** URL from Supabase (Project Settings → Database → Session pooler), not the direct connection URL. The direct URL only works from certain networks.
 
 ---
 
@@ -107,12 +116,16 @@ Shows all 4 condition buttons. Data saved with `DEV_` prefix on participant ID s
 
 1. **Welcome screen** — click Start (random condition) or use dev mode to force one
 2. **Session start** (`POST /api/start-session`) — assigns participant ID and condition
-3. **Frame intro** (`GET /api/get-frame`) — shows skill vs luck framing text
+3. **Frame intro** (`GET /api/get-frame`) — shows condition-specific framing text:
+   - Skill: "Reaction-Time Challenge — your timing determines where the bar stops"
+   - Luck: "Luck-Based Game — result determined by chance, not when you click"
 4. **Trial loop** (5 rounds)
-   - `POST /api/generate-bar-trial` — randomizes bar speed and target zone
-   - Participant presses Space or STOP to stop the bar
+   - `POST /api/generate-bar-trial` — randomizes target zone; for luck condition also pre-determines final bar position
+   - **Skill**: bar sweeps left-to-right, participant times their stop
+   - **Luck**: bar ping-pongs slowly; clicking teleports bar to a server-predetermined position
    - `POST /api/evaluate-trial` — scores as `hit`, `near_miss`, or `loss`
-   - Near misses only labeled when `loss_frame = near_miss`
+   - For luck condition: trials 1–3 random outcome; trials 4–5 guaranteed near-miss position
+   - Near misses only labeled "So close!" when `loss_frame = near_miss`
 5. **Post-survey** (`POST /api/save-post-survey`) — 3 questions
 6. **Summary** (`GET /api/get-summary`) — shows results, saves final record
 

@@ -1,9 +1,9 @@
-﻿===============================================================================
+===============================================================================
 NEAR-MISS STUDY APP
 Current Project Structure and Architecture
 ===============================================================================
 
-Last updated: 2026-02-20
+Last updated: 2026-02-27
 
 PROJECT LAYOUT
 ==============
@@ -11,20 +11,19 @@ PROJECT LAYOUT
 near-miss/
 |
 |-- app.py                         # Flask backend (session + API + persistence)
-|-- analyze_data.py                # Analysis for current jsonl schema
+|-- analyze_data.py                # Analysis script for local jsonl data
 |-- test_setup.py                  # Setup and structure validator
-|-- requirements.txt               # Runtime + analysis dependencies
+|-- test_db.py                     # Database connection test
+|-- requirements.txt               # Python dependencies
+|-- Procfile                       # Render process config (gunicorn)
+|-- runtime.txt                    # Python version pin for Render
 |-- README.md                      # Main usage and run guide
-|-- STATUS.md                      # Current app behavior + AI prompt bank
-|-- SETUP.md                       # Setup reference (older sections may differ)
-|-- QUICKREF.md                    # Quick reference notes
-|-- INDEX.md                       # Navigation notes
-|-- EXAMPLE_DATA.md                # Example data notes
-|-- START_HERE.md                  # Starter note
+|-- STATUS.md                      # Implementation history + AI prompt bank
 |-- PROJECT_STRUCTURE.txt          # This file
 |
 |-- templates/
-|   `-- index.html                 # Single-page UI with all screens
+|   |-- index.html                 # Single-page experiment UI (all screens)
+|   `-- dashboard.html             # Data dashboard (view/export tables)
 |
 |-- static/
 |   |-- css/
@@ -32,8 +31,10 @@ near-miss/
 |   `-- js/
 |       `-- experiment.js          # Frontend state machine + API calls
 |
-`-- experiment_data/               # Local data store (jsonl files)
-    `-- PXXXXX.jsonl               # One file per participant
+|-- experiment_data/               # Local data store (jsonl files, gitignored)
+|   `-- PXXXXX.jsonl               # One file per participant
+|
+`-- venv/                          # Local virtual environment (gitignored)
 
 ===============================================================================
 RUNTIME FLOW (CURRENT)
@@ -43,7 +44,7 @@ RUNTIME FLOW (CURRENT)
    - app.py serves templates/index.html
 
 2) Session starts: POST /api/start-session
-   - Assigns participant_id
+   - Assigns participant_id (prefix P or DEV_ in dev mode)
    - Sets condition:
      - frame_type: skill | luck
      - loss_frame: near_miss | clear_loss
@@ -51,13 +52,19 @@ RUNTIME FLOW (CURRENT)
    - Initializes session trial state
 
 3) Frame intro: GET /api/get-frame
-   - Returns title + description for selected frame
+   - Skill: "Reaction-Time Challenge" — timing determines outcome
+   - Luck: "Luck-Based Game" — result is random, not skill-based
 
 4) Trial loop (MAX_TRIALS = 5)
-   - POST /api/generate-bar-trial: bar speed and target zone
-   - Frontend runs moving-bar animation
-   - Participant presses Space or STOP
+   - POST /api/generate-bar-trial:
+     - Returns bar speed and target zone for all conditions
+     - For luck condition: also pre-computes luck_final_position
+       - Trials 1-3: random position (0-100%)
+       - Trials 4-5: guaranteed near-miss position (within NEAR_MISS_BAND)
+   - Skill: bar sweeps left-to-right, participant times their stop
+   - Luck: bar ping-pongs slowly; click teleports bar to luck_final_position
    - POST /api/evaluate-trial: computes hit / near_miss / loss
+     - near_miss label only applied when loss_frame == near_miss
 
 5) Post survey: POST /api/save-post-survey
    - desired_rounds_next_time: 1..5
@@ -70,11 +77,15 @@ RUNTIME FLOW (CURRENT)
 7) Data export: GET /api/export-all-data
    - Returns all records from DB (if configured) or local jsonl files
 
+8) CSV export: GET /api/export-csv?table=<trials|post_surveys|summaries>
+   - Downloads a CSV of the specified table
+
 ===============================================================================
 ACTIVE API ROUTES
 =================
 
 GET  /
+GET  /dashboard
 POST /api/start-session
 GET  /api/get-frame
 POST /api/generate-bar-trial
@@ -82,61 +93,61 @@ POST /api/evaluate-trial
 POST /api/save-post-survey
 GET  /api/get-summary
 GET  /api/export-all-data
+GET  /api/export-csv
 
 ===============================================================================
 DATA MODEL (CURRENT)
 ====================
 
 Storage mode A: PostgreSQL (when DATABASE_URL is set)
-- SQLAlchemy model ExperimentResult with metadata + JSON payload
+- Three flat SQLAlchemy models: Trial, PostSurvey, Summary
+- Tables auto-created on first deploy via db.create_all()
 
-Storage mode B: Local fallback (default dev)
+Storage mode B: Local fallback (default for local dev)
 - experiment_data/<participant_id>.jsonl
-- newline-delimited JSON records
+- Newline-delimited JSON records
 
 Record types written:
 - trial
 - post_survey
 - summary
 
-Important note:
+Important notes:
 - Near-miss label is condition-aware.
-- If loss_frame is clear_loss, near_miss_raw may be true but outcome is loss.
+  If loss_frame is clear_loss, near_miss_raw may be true but outcome is loss.
+- For luck condition, bar_position saved is the server-predetermined position,
+  not where the bar was visually when the participant clicked.
 
 ===============================================================================
-ANALYSIS PIPELINE (CURRENT)
-===========================
+LUCK vs SKILL CONDITION MECHANICS
+==================================
 
-Script: analyze_data.py
+Skill condition:
+- Bar sweeps linearly from left to right with slight sinusoidal wobble
+- Bar auto-stops after BAR_DURATION (1500ms) if participant doesn't click
+- Outcome depends entirely on when the participant stops the bar
 
-Inputs:
-- experiment_data/*.jsonl
-- legacy experiment_data/*.json accepted as fallback
-
-Processing:
-- Splits record_type into trial / post_survey / summary tables
-- Builds latest participant-level table
-- Reports:
-  - condition counts (frame_type x loss_frame)
-  - trial hit and near-miss rates
-  - post-survey means
-  - simple inferential checks when possible
-
-Exports:
-- participant_summary_current.csv
-- trial_level_current.csv
+Luck condition:
+- Bar ping-pongs slowly left-right (2800ms per cycle), runs indefinitely
+- Clicking STOP teleports bar to a server-predetermined position
+- Participant's timing has no effect on outcome
+- Trials 1-3: final position is genuinely random (can hit, near-miss, or loss)
+- Trials 4-5: final position guaranteed in near-miss band
+  - luck x near_miss: labeled "So close!" (near miss)
+  - luck x clear_loss: labeled "You lost this round." (near_miss_raw=true, is_near_miss=false)
 
 ===============================================================================
 HOW TO TEST ALL FOUR CONDITIONS
 ===============================
 
 1) Start server:
+   .\venv\Scripts\activate
    python app.py
 
 2) Open:
-   http://localhost:5000/?test=1
+   http://localhost:5000/?dev=1
 
-3) Use test-mode buttons:
+3) Use dev-mode buttons:
 - Skill x Near Miss
 - Skill x Clear Loss
 - Luck x Near Miss
@@ -147,11 +158,23 @@ KEY CONFIG VALUES (app.py)
 ==========================
 
 MAX_TRIALS = 5
-BAR_DURATION = 1500
+BAR_DURATION = 1500       # ms — skill condition only (luck runs until clicked)
 MIN_SPEED = 0.5
 MAX_SPEED = 0.9
-TARGET_ZONE_WIDTH = 10
-NEAR_MISS_BAND = 15
+TARGET_ZONE_WIDTH = 10    # % of bar width
+NEAR_MISS_BAND = 15       # % either side of target zone
+
+===============================================================================
+LOCAL SETUP (QUICK)
+===================
+
+python -m venv venv
+.\venv\Scripts\activate          (Windows PowerShell)
+pip install -r requirements.txt
+python app.py
+
+No .env needed for local dev — app uses jsonl file fallback automatically.
+To connect to Supabase locally, add DATABASE_URL (session pooler URL) to .env.
 
 ===============================================================================
 VALIDATION
@@ -163,7 +186,7 @@ Run:
 Checks include:
 - Dependencies installed
 - Required files present
-- experiment_data integrity (.jsonl and legacy .json)
+- experiment_data integrity (.jsonl)
 - Current HTML screens and JS functions exist
 - app.py imports successfully
 
