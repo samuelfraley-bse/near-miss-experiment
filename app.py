@@ -140,26 +140,23 @@ def save_record(participant_id, record_type, data):
 
 def build_frame(frame_type, loss_frame):
     if frame_type == 'skill':
-        title = 'Reaction-Time Game'
+        title = 'Reaction-Time Challenge'
         description = (
-            'Test your reaction time speed and skill with this game. '
-            'The bar movement changes somewhat from round to round, within bounds.'
+            'This is a skill-based game. Your timing determines where the bar stops — '
+            'try to land in the green zone on each round.'
         )
         icon = 'TARGET'
     else:
-        title = 'Game Rounds'
+        title = 'Luck-Based Game'
         description = (
-            'Play the game for several rounds and try your best each time. '
-            'Each round gives immediate feedback on the outcome.'
+            'This is a luck-based game. The result of each round is determined by chance, '
+            'not by when you click. Press STOP whenever you\'re ready to reveal your result.'
         )
         icon = 'CLOVER'
-
-    loss_notice = ''
 
     return {
         'title': title,
         'description': description,
-        'loss_notice': loss_notice,
         'icon': icon
     }
 
@@ -270,7 +267,27 @@ def generate_bar_trial():
 
     bar_speed = random.uniform(MIN_SPEED, MAX_SPEED)
     target_zone_start = random.uniform(30, 50)
+    target_zone_end = target_zone_start + TARGET_ZONE_WIDTH
     optimal_stop = target_zone_start + (TARGET_ZONE_WIDTH / 2)
+
+    # For luck condition, pre-determine where the bar will land
+    luck_final_position = None
+    frame_type = session.get('frame_type', 'skill')
+    if frame_type == 'luck':
+        if trial_num >= 4:  # last 2 of 5 trials → guaranteed near-miss position
+            side = random.choice(['left', 'right'])
+            if side == 'left':
+                luck_final_position = round(random.uniform(
+                    max(0, target_zone_start - NEAR_MISS_BAND),
+                    target_zone_start - 0.1
+                ), 2)
+            else:
+                luck_final_position = round(random.uniform(
+                    target_zone_end + 0.1,
+                    min(100, target_zone_end + NEAR_MISS_BAND)
+                ), 2)
+        else:  # trials 1–3: genuinely random (could hit or miss)
+            luck_final_position = round(random.uniform(0, 100), 2)
 
     return jsonify({
         'trial_number': trial_num,
@@ -278,7 +295,8 @@ def generate_bar_trial():
         'duration': BAR_DURATION,
         'target_zone_start': target_zone_start,
         'target_zone_width': TARGET_ZONE_WIDTH,
-        'optimal_stop': optimal_stop
+        'optimal_stop': optimal_stop,
+        'luck_final_position': luck_final_position
     })
 
 
