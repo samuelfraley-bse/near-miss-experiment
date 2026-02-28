@@ -427,8 +427,8 @@ def evaluate_trial():
         else:
             # Check how far they were from the zone
             dist_from_zone = (target_zone_start - bar_position) if bar_position < target_zone_start                              else (bar_position - target_zone_end)
-            if dist_from_zone > 25:
-                # Really far — always clear loss regardless of condition
+            if dist_from_zone > 35:
+                # Visibly, obviously far — clear loss even in near_miss condition
                 outcome = 'loss'
                 is_near_miss = False
                 near_miss_raw = False

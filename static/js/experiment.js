@@ -19,8 +19,8 @@ let experimentState = {
     barRunning: false,
     barPosition: 0,
     barAnimationId: null,
-    wheelRotation: 0,
-    wheelSpinning: false,
+    reelSpinning: false,
+    reelHitUsed: false,
     wheelZoneStart: 0,
     wheelZoneEnd: 0
 };
@@ -170,7 +170,7 @@ async function startNextTrial() {
 
         showCountdown(() => {
             if (experimentState.frameType === 'luck') {
-                setupWheelTrial(config);
+                setupReelTrial(config);
             } else {
                 setupBarTrial(config);
             }
@@ -239,128 +239,117 @@ function stopBar() {
     evaluateTrial(experimentState.barPosition);
 }
 
-// ─── WHEEL GAME ───────────────────────────────────────────────────────────────
+// --- REEL GAME ---
 
-const WHEEL_CX = 200;
-const WHEEL_CY = 200;
-const WHEEL_RADIUS = 180;
+const REEL_CELL_W  = 70;
+const REEL_VISIBLE = 540;
 
-function numberToAngle(n) {
-    return (n / 100) * 2 * Math.PI - Math.PI / 2;
+function buildSequence() {
+    var seq = [];
+    for (var rep = 0; rep < 6; rep++)
+        for (var v = 0; v < 100; v++) seq.push(v);
+    return seq;
+}
+var REEL_SEQUENCE = buildSequence();
+
+function setReelPos(offset) {
+    var track   = document.getElementById('reel-track');
+    var centerX = REEL_VISIBLE / 2 - REEL_CELL_W / 2;
+    track.style.transform = 'translateX(' + (centerX - offset * REEL_CELL_W) + 'px)';
 }
 
-function drawWheel(rotation) {
-    const canvas = document.getElementById('wheel-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.beginPath();
-    ctx.arc(WHEEL_CX, WHEEL_CY, WHEEL_RADIUS, 0, 2 * Math.PI);
-    ctx.fillStyle = '#fff';
-    ctx.fill();
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    const zoneStartAngle = numberToAngle(experimentState.wheelZoneStart) + rotation;
-    const zoneEndAngle   = numberToAngle(experimentState.wheelZoneEnd) + rotation;
-    ctx.beginPath();
-    ctx.moveTo(WHEEL_CX, WHEEL_CY);
-    ctx.arc(WHEEL_CX, WHEEL_CY, WHEEL_RADIUS, zoneStartAngle, zoneEndAngle);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(60, 179, 113, 0.4)';
-    ctx.fill();
-    ctx.strokeStyle = 'green';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    for (let n = 0; n < 100; n += 10) {
-        const angle = numberToAngle(n) + rotation;
-        const innerR = WHEEL_RADIUS - 15;
-        const labelR = WHEEL_RADIUS - 28;
-        ctx.beginPath();
-        ctx.moveTo(WHEEL_CX + innerR * Math.cos(angle), WHEEL_CY + innerR * Math.sin(angle));
-        ctx.lineTo(WHEEL_CX + WHEEL_RADIUS * Math.cos(angle), WHEEL_CY + WHEEL_RADIUS * Math.sin(angle));
-        ctx.strokeStyle = '#333';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.fillStyle = '#333';
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(n, WHEEL_CX + labelR * Math.cos(angle), WHEEL_CY + labelR * Math.sin(angle));
-    }
-
-    for (let n = 0; n < 100; n += 5) {
-        if (n % 10 === 0) continue;
-        const angle = numberToAngle(n) + rotation;
-        const innerR = WHEEL_RADIUS - 8;
-        ctx.beginPath();
-        ctx.moveTo(WHEEL_CX + innerR * Math.cos(angle), WHEEL_CY + WHEEL_RADIUS * Math.sin(angle));
-        ctx.lineTo(WHEEL_CX + WHEEL_RADIUS * Math.cos(angle), WHEEL_CY + WHEEL_RADIUS * Math.sin(angle));
-        ctx.strokeStyle = '#999';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-    }
-
-    ctx.beginPath();
-    ctx.arc(WHEEL_CX, WHEEL_CY, 6, 0, 2 * Math.PI);
-    ctx.fillStyle = '#333';
-    ctx.fill();
+function buildReel() {
+    var track = document.getElementById('reel-track');
+    track.innerHTML = '';
+    var zs = experimentState.wheelZoneStart;
+    var ze = experimentState.wheelZoneEnd;
+    REEL_SEQUENCE.forEach(function(v) {
+        var cell   = document.createElement('div');
+        var inZone = v >= zs && v <= ze;
+        cell.style.cssText = 'width:64px;height:110px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.5em;font-weight:800;border-radius:8px;margin:0 3px;user-select:none;' +
+            (inZone
+                ? 'background:#14532d;color:#4ade80;border:2px solid #22c55e;box-shadow:0 0 10px rgba(34,197,94,0.3);'
+                : 'background:#1e293b;color:#cbd5e0;');
+        cell.textContent = v;
+        track.appendChild(cell);
+    });
+    setReelPos(0);
 }
 
-function setupWheelTrial(config) {
+function setupReelTrial(config) {
     document.getElementById('wheel-trial-num').textContent = experimentState.currentTrial;
-
-    experimentState.wheelZoneStart = Math.floor(Math.random() * 70) + 10;
-    experimentState.wheelZoneEnd   = experimentState.wheelZoneStart + 10;
-
+    experimentState.wheelZoneStart = Math.floor(Math.random() * 60) + 15;
+    experimentState.wheelZoneEnd   = experimentState.wheelZoneStart + 8;
     document.getElementById('wheel-zone-label').textContent =
-        `Winning zone: ${experimentState.wheelZoneStart} – ${experimentState.wheelZoneEnd}`;
-
-    experimentState.wheelRotation = 0;
-    drawWheel(0);
-
+        'Winning zone: ' + experimentState.wheelZoneStart + '–' + experimentState.wheelZoneEnd;
+    buildReel();
     document.getElementById('wheel-spin-btn').disabled = false;
+    document.getElementById('spin-status').textContent = '';
     switchScreen('wheel-screen');
 }
 
-function spinWheel() {
-    if (experimentState.wheelSpinning) return;
-    experimentState.wheelSpinning = true;
+function spinReel() {
+    if (experimentState.reelSpinning) return;
+    experimentState.reelSpinning = true;
     document.getElementById('wheel-spin-btn').disabled = true;
 
-    let targetNumber;
-    if (experimentState.lossFrame === 'near_miss') {
-        const offset = 2 + Math.random() * 2;
-        targetNumber = experimentState.wheelZoneEnd + offset;
-    } else {
-        const offset = 20 + Math.random() * 10;
-        targetNumber = experimentState.wheelZoneEnd + offset;
-    }
-    targetNumber = Math.min(targetNumber, 99);
+    var lossFrame   = experimentState.lossFrame;
+    var isLastRound = experimentState.currentTrial >= experimentState.maxTrials;
+    var zs = experimentState.wheelZoneStart;
+    var ze = experimentState.wheelZoneEnd;
 
-    const targetAngle   = (targetNumber / 100) * 2 * Math.PI;
-    const extraSpins    = 3 * 2 * Math.PI;
-    const totalRotation = extraSpins + targetAngle - (experimentState.wheelRotation % (2 * Math.PI));
-    const duration      = 3000;
-    const startTime     = Date.now();
-    const startRotation = experimentState.wheelRotation;
+    var shownOutcome;
+    if (isLastRound) {
+        shownOutcome = lossFrame;
+    } else if (!experimentState.reelHitUsed && experimentState.currentTrial >= 2 && Math.random() < 0.4) {
+        shownOutcome = 'hit';
+    } else {
+        shownOutcome = Math.random() < 0.80
+            ? lossFrame
+            : (lossFrame === 'near_miss' ? 'clear_loss' : 'near_miss');
+    }
+    if (shownOutcome === 'hit') experimentState.reelHitUsed = true;
+
+    var targetValue;
+    if (shownOutcome === 'hit') {
+        targetValue = zs + 1 + Math.floor(Math.random() * Math.max(1, ze - zs - 1));
+    } else if (shownOutcome === 'near_miss') {
+        if (Math.random() < 0.5) {
+            targetValue = ze + 1 + Math.floor(Math.random() * 5);
+        } else {
+            targetValue = zs - 1 - Math.floor(Math.random() * 5);
+        }
+    } else {
+        targetValue = ze + 28 + Math.floor(Math.random() * 20);
+    }
+    targetValue = ((targetValue % 100) + 100) % 100;
+
+    var baseIdx   = 200 + targetValue;
+    var duration  = 5500;
+    var startTime = Date.now();
+
+    var statusEl = document.getElementById('spin-status');
+    statusEl.textContent = '';
+    var t1 = setTimeout(function() { statusEl.textContent = 'Drawing...'; }, 400);
+    var t2 = setTimeout(function() { statusEl.textContent = 'Slowing down...'; }, 3800);
+
+    function easeOut(p) {
+        if (p < 0.55) return p * (0.75 / 0.55);
+        var r = (p - 0.55) / 0.45;
+        return 0.75 + 0.25 * (1 - Math.pow(1 - r, 4));
+    }
 
     function animate() {
-        const elapsed  = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased    = 1 - Math.pow(1 - progress, 3);
-
-        experimentState.wheelRotation = startRotation + totalRotation * eased;
-        drawWheel(-experimentState.wheelRotation);
-
+        var elapsed  = Date.now() - startTime;
+        var progress = Math.min(elapsed / duration, 1);
+        setReelPos(baseIdx * easeOut(progress));
         if (progress < 1) {
             requestAnimationFrame(animate);
         } else {
-            experimentState.wheelSpinning = false;
-            evaluateTrial(targetNumber);
+            clearTimeout(t1); clearTimeout(t2);
+            statusEl.textContent = '';
+            experimentState.reelSpinning = false;
+            evaluateTrial(targetValue, shownOutcome);
         }
     }
 
@@ -369,7 +358,7 @@ function spinWheel() {
 
 // ─── TRIAL EVALUATION ─────────────────────────────────────────────────────────
 
-async function evaluateTrial(position) {
+async function evaluateTrial(position, shownOutcome) {
     const config = experimentState.currentTrialConfig;
     try {
         const response = await fetch('/api/evaluate-trial', {
@@ -381,7 +370,8 @@ async function evaluateTrial(position) {
                 target_zone_width: config.target_zone_width,
                 trial_number: experimentState.currentTrial,
                 wheel_zone_start: experimentState.wheelZoneStart,
-                wheel_zone_end: experimentState.wheelZoneEnd
+                wheel_zone_end: experimentState.wheelZoneEnd,
+                shown_outcome: shownOutcome || null
             })
         });
         const result = await response.json();
