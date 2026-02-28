@@ -182,46 +182,44 @@ async function startNextTrial() {
 
 // ─── BAR GAME ─────────────────────────────────────────────────────────────────
 
+const BAR_BOUNCE_PERIOD = 280; // ms per one-way pass
+
 function setupBarTrial(config) {
     document.getElementById('bar-trial-num').textContent = experimentState.currentTrial;
 
     const targetZone = document.getElementById('target-zone');
-    targetZone.style.left = config.target_zone_start + '%';
+    targetZone.style.left  = config.target_zone_start + '%';
     targetZone.style.width = config.target_zone_width + '%';
 
     const bar = document.getElementById('moving-bar');
-    bar.style.left = '0%';
+    bar.style.left = '2%';
 
-    document.getElementById('start-trial-btn').classList.remove('hidden');
-    document.getElementById('stop-btn').classList.add('hidden');
-    switchScreen('bar-task-screen');
-}
-
-function beginTrial() {
+    // Bar launches immediately — no Start button
     document.getElementById('start-trial-btn').classList.add('hidden');
     document.getElementById('stop-btn').classList.remove('hidden');
+
+    switchScreen('bar-task-screen');
     startBarAnimation();
 }
 
 function startBarAnimation() {
     const bar = document.getElementById('moving-bar');
     const startTime = Date.now();
-    const duration = experimentState.currentTrialConfig.duration || 1500;
-    const barSpeed = experimentState.currentTrialConfig.bar_speed || 0.7;
     experimentState.barRunning = true;
 
     const animate = () => {
         const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const basePosition = progress * 100;
-        const position = basePosition + (Math.sin(elapsed / 100) * barSpeed * 5);
-        experimentState.barPosition = Math.max(0, Math.min(position, 100));
-        bar.style.left = experimentState.barPosition + '%';
+        // Ping-pong triangle wave: bounces 0->100->0->100...
+        const period  = BAR_BOUNCE_PERIOD * 2;
+        const t       = (elapsed % period) / period;
+        const phase   = t < 0.5 ? t * 2 : 2 - t * 2;
+        const position = phase * 96 + 2; // 2-98% to keep small margins
 
-        if (progress < 1 && experimentState.barRunning) {
+        experimentState.barPosition = position;
+        bar.style.left = position + '%';
+
+        if (experimentState.barRunning) {
             experimentState.barAnimationId = requestAnimationFrame(animate);
-        } else if (progress >= 1 && experimentState.barRunning) {
-            stopBar();
         }
     };
 
@@ -233,6 +231,11 @@ function stopBar() {
     experimentState.barRunning = false;
     cancelAnimationFrame(experimentState.barAnimationId);
     document.getElementById('stop-btn').classList.add('hidden');
+
+    // Immediately blank the screen so participant never sees where bar stopped
+    switchScreen('countdown-screen');
+    document.getElementById('countdown-number').textContent = '';
+
     evaluateTrial(experimentState.barPosition);
 }
 

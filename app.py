@@ -409,21 +409,49 @@ def evaluate_trial():
         target_zone_end = target_zone_start + target_zone_width
 
     target_center = target_zone_start + (target_zone_width / 2)
-    is_hit = target_zone_start <= bar_position <= target_zone_end
-    distance_from_center = abs(bar_position - target_center)
 
-    near_miss_raw = (
-        (target_zone_start - NEAR_MISS_BAND <= bar_position < target_zone_start) or
-        (target_zone_end < bar_position <= target_zone_end + NEAR_MISS_BAND)
-    )
-    is_near_miss = (not is_hit) and near_miss_raw and loss_frame == 'near_miss'
+    if frame_type == 'skill':
+        # Check if participant genuinely landed in the zone
+        is_hit = target_zone_start <= bar_position <= target_zone_end
+        distance_from_center = abs(bar_position - target_center)
 
-    if is_hit:
-        outcome = 'hit'
-    elif is_near_miss:
-        outcome = 'near_miss'
+        if is_hit:
+            outcome = 'hit'
+            is_near_miss = False
+            near_miss_raw = False
+        elif trial_number >= MAX_TRIALS:
+            # Last trial: always near miss so it lingers in mind during survey
+            outcome = 'near_miss'
+            is_near_miss = True
+            near_miss_raw = True
+        else:
+            # Check how far they were from the zone
+            dist_from_zone = (target_zone_start - bar_position) if bar_position < target_zone_start                              else (bar_position - target_zone_end)
+            if dist_from_zone > 25:
+                # Really far — always clear loss regardless of condition
+                outcome = 'loss'
+                is_near_miss = False
+                near_miss_raw = False
+            else:
+                # Within plausible range — follow assigned condition
+                is_near_miss = (loss_frame == 'near_miss')
+                near_miss_raw = is_near_miss
+                outcome = 'near_miss' if is_near_miss else 'loss'
     else:
-        outcome = 'loss'
+        # Luck condition: wheel outcome already engineered on frontend
+        is_hit = target_zone_start <= bar_position <= target_zone_end
+        distance_from_center = abs(bar_position - target_center)
+        near_miss_raw = (
+            (target_zone_start - NEAR_MISS_BAND <= bar_position < target_zone_start) or
+            (target_zone_end < bar_position <= target_zone_end + NEAR_MISS_BAND)
+        )
+        is_near_miss = (not is_hit) and near_miss_raw and loss_frame == 'near_miss'
+        if is_hit:
+            outcome = 'hit'
+        elif is_near_miss:
+            outcome = 'near_miss'
+        else:
+            outcome = 'loss'
 
     trial_data = {
         'record_type': 'trial',
