@@ -50,9 +50,13 @@ if DATABASE_URL:
         condition_id = db.Column(db.String(50))
         frame_type = db.Column(db.String(20))
         loss_frame = db.Column(db.String(20))
+        wants_more_rounds = db.Column(db.Boolean)
         desired_rounds_next_time = db.Column(db.Integer)
         confidence_impact = db.Column(db.Integer)
         self_rated_accuracy = db.Column(db.Integer)
+        frustration = db.Column(db.Integer)
+        motivation = db.Column(db.Integer)
+        luck_vs_skill = db.Column(db.Integer)
 
     class Summary(db.Model):
         __tablename__ = 'summaries'
@@ -66,6 +70,8 @@ if DATABASE_URL:
         hits = db.Column(db.Integer)
         near_misses = db.Column(db.Integer)
         losses = db.Column(db.Integer)
+        age = db.Column(db.Integer)
+        gender = db.Column(db.String(20))
 
     with app.app_context():
         db.create_all()
@@ -89,6 +95,52 @@ def parse_int(value, default=0):
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def assign_balanced_condition():
+    """Assign new participant to whichever condition has fewest completions."""
+    all_conditions = [
+        ('skill', 'near_miss'),
+        ('skill', 'clear_loss'),
+        ('luck', 'near_miss'),
+        ('luck', 'clear_loss')
+    ]
+    counts = {f'{ft}_{lf}': 0 for ft, lf in all_conditions}
+
+    if db:
+        from sqlalchemy import func
+        rows = db.session.query(
+            Summary.condition_id,
+            func.count(Summary.id)
+        ).filter(
+            ~Summary.participant_id.like('DEV_%')
+        ).group_by(Summary.condition_id).all()
+        for condition_id, count in rows:
+            if condition_id in counts:
+                counts[condition_id] = count
+    else:
+        # Count completed sessions from local jsonl files
+        if os.path.exists(DATA_DIR):
+            for filename in os.listdir(DATA_DIR):
+                if not filename.endswith('.jsonl') or filename.startswith('DEV_'):
+                    continue
+                filepath = os.path.join(DATA_DIR, filename)
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            record = json.loads(line)
+                            if record.get('record_type') == 'summary':
+                                cid = record.get('condition_id')
+                                if cid in counts:
+                                    counts[cid] += 1
+
+    # Pick randomly among conditions tied at the lowest count
+    min_count = min(counts.values())
+    least_filled = [c for c, n in counts.items() if n == min_count]
+    chosen = random.choice(least_filled)
+    frame_type, loss_frame = chosen.split('_', 1)
+    return frame_type, loss_frame
 
 
 def save_record(participant_id, record_type, data):
@@ -117,9 +169,13 @@ def save_record(participant_id, record_type, data):
             )
         elif record_type == 'post_survey':
             record = PostSurvey(**common,
+                wants_more_rounds=data.get('wants_more_rounds'),
                 desired_rounds_next_time=data.get('desired_rounds_next_time'),
                 confidence_impact=data.get('confidence_impact'),
                 self_rated_accuracy=data.get('self_rated_accuracy'),
+                frustration=data.get('frustration'),
+                motivation=data.get('motivation'),
+                luck_vs_skill=data.get('luck_vs_skill'),
             )
         elif record_type == 'summary':
             record = Summary(**common,
@@ -127,6 +183,8 @@ def save_record(participant_id, record_type, data):
                 hits=data.get('hits'),
                 near_misses=data.get('near_misses'),
                 losses=data.get('losses'),
+                age=data.get('age'),
+                gender=data.get('gender'),
             )
         else:
             return
@@ -140,34 +198,76 @@ def save_record(participant_id, record_type, data):
 
 def build_frame(frame_type, loss_frame):
     if frame_type == 'skill':
-        title = 'Reaction-Time Challenge'
+        title = 'Reaction Time Challenge'
         description = (
-            'This is a skill-based game. Your timing determines where the bar stops — '
-            'try to land in the green zone on each round.'
+            'In this game, a bar moves across the screen. '
+            'Your goal is to press STOP at the right moment to land it in the green zone. '
+            'This is a test of your reaction time and timing precision. '
+            'Most people find they get a better feel for the timing as they go — '
+            'so pay attention and try to improve with each round.'
         )
         icon = 'TARGET'
     else:
-        title = 'Luck-Based Game'
+        title = 'Number Draw Game'
         description = (
-            'This is a luck-based game. The result of each round is determined by chance, '
-            'not by when you click. Press STOP whenever you\'re ready to reveal your result.'
+            'In this game, a number between 1 and 100 is randomly drawn each round. '
+            'The green zone on the wheel shows the winning interval. '
+            'If the drawn number falls inside the green zone, you win that round. '
+            'The outcome is entirely determined by chance — '
+            'some people hit lucky streaks, others have to wait for their luck to turn.'
         )
         icon = 'CLOVER'
 
-    return {
-        'title': title,
-        'description': description,
-        'icon': icon
-    }
+    return {'title': title, 'description': description, 'icon': icon}
 
 
-def generate_feedback(outcome, distance_from_center):
+def generate_feedback(outcome, distance_from_center, frame_type='skill'):
     if outcome == 'hit':
-        return 'Hit! Great timing.'
-    if outcome == 'near_miss':
-        return f'So close! You were {distance_from_center:.1f}% from center.'
-    return f'You lost this round. Missed by {distance_from_center:.1f}%.'
+        if frame_type == 'skill':
+            messages = [
+                'Great timing! Right in the zone.',
+                'Nailed it! Perfect stop.',
+                'Excellent — right where you wanted it.',
+            ]
+        else:
+            messages = [
+                'Lucky you! Right in the zone.',
+                'Fortune favours you this round!',
+                'That one landed perfectly.',
+            ]
+        return random.choice(messages)
 
+    if outcome == 'near_miss':
+        if frame_type == 'skill':
+            messages = [
+                'So close! Just a tiny bit off — you almost had it.',
+                'Nearly! Your timing was just a fraction away.',
+                'Agonisingly close. One small adjustment and you\'d have nailed it.',
+                'So close it hurts! You were right on the edge of the zone.',
+            ]
+        else:
+            messages = [
+                'So close! The number landed just outside your zone.',
+                'Agonisingly close — just one number away from winning.',
+                'Nearly! The wheel stopped just short of your zone.',
+                'So close it hurts! Almost in the zone.',
+            ]
+        return random.choice(messages)
+
+    # clear loss
+    if frame_type == 'skill':
+        messages = [
+            'Not quite — the bar was pretty far from the zone this round.',
+            'Missed by a fair amount this time. Keep trying.',
+            'That one was quite a bit off. Better luck next round.',
+        ]
+    else:
+        messages = [
+            'No luck this round — the number landed well outside your zone.',
+            'Pretty far off this time. The wheel wasn\'t kind.',
+            'That one wasn\'t close. Hopefully next round is better.',
+        ]
+    return random.choice(messages)
 
 @app.route('/')
 def index():
@@ -184,23 +284,23 @@ def export_csv():
     import csv
     import io
     table = request.args.get('table', 'trials')
-
     output = io.StringIO()
 
     if db:
         if table == 'trials':
             rows = Trial.query.all()
-            fields = ['id','participant_id','timestamp','condition_id','frame_type','loss_frame',
-                      'trial_number','bar_position','target_zone_start','target_zone_end',
-                      'distance_from_center','is_hit','near_miss_raw','is_near_miss','outcome']
+            fields = ['id', 'participant_id', 'timestamp', 'condition_id', 'frame_type', 'loss_frame',
+                      'trial_number', 'bar_position', 'target_zone_start', 'target_zone_end',
+                      'distance_from_center', 'is_hit', 'near_miss_raw', 'is_near_miss', 'outcome']
         elif table == 'post_surveys':
             rows = PostSurvey.query.all()
-            fields = ['id','participant_id','timestamp','condition_id','frame_type','loss_frame',
-                      'desired_rounds_next_time','confidence_impact','self_rated_accuracy']
+            fields = ['id', 'participant_id', 'timestamp', 'condition_id', 'frame_type', 'loss_frame',
+                      'wants_more_rounds', 'desired_rounds_next_time', 'confidence_impact',
+                      'self_rated_accuracy', 'frustration', 'motivation', 'luck_vs_skill']
         elif table == 'summaries':
             rows = Summary.query.all()
-            fields = ['id','participant_id','timestamp','condition_id','frame_type','loss_frame',
-                      'trial_count','hits','near_misses','losses']
+            fields = ['id', 'participant_id', 'timestamp', 'condition_id', 'frame_type', 'loss_frame',
+                      'trial_count', 'hits', 'near_misses', 'losses', 'age', 'gender']
         else:
             return jsonify({'error': 'unknown table'}), 400
 
@@ -228,9 +328,16 @@ def start_session():
     force_frame_type = data.get('force_frame_type')
     force_loss_frame = data.get('force_loss_frame')
 
-    frame_type = force_frame_type if force_frame_type in ['skill', 'luck'] else random.choice(['skill', 'luck'])
-    loss_frame = force_loss_frame if force_loss_frame in ['near_miss', 'clear_loss'] else random.choice(['near_miss', 'clear_loss'])
+    # Dev mode: use forced condition. Real participants: balanced assignment.
+    if force_frame_type in ['skill', 'luck'] and force_loss_frame in ['near_miss', 'clear_loss']:
+        frame_type = force_frame_type
+        loss_frame = force_loss_frame
+    else:
+        frame_type, loss_frame = assign_balanced_condition()
+
     condition_id = f'{frame_type}_{loss_frame}'
+    age = data.get('age')
+    gender = data.get('gender')
 
     session['participant_id'] = participant_id
     session['frame_type'] = frame_type
@@ -239,6 +346,8 @@ def start_session():
     session['trials'] = []
     session['trial_count'] = 0
     session['post_survey'] = None
+    session['age'] = age
+    session['gender'] = gender
     session.modified = True
 
     return jsonify({
@@ -270,25 +379,6 @@ def generate_bar_trial():
     target_zone_end = target_zone_start + TARGET_ZONE_WIDTH
     optimal_stop = target_zone_start + (TARGET_ZONE_WIDTH / 2)
 
-    # For luck condition, pre-determine where the bar will land
-    luck_final_position = None
-    frame_type = session.get('frame_type', 'skill')
-    if frame_type == 'luck':
-        if trial_num >= 4:  # last 2 of 5 trials → guaranteed near-miss position
-            side = random.choice(['left', 'right'])
-            if side == 'left':
-                luck_final_position = round(random.uniform(
-                    max(0, target_zone_start - NEAR_MISS_BAND),
-                    target_zone_start - 0.1
-                ), 2)
-            else:
-                luck_final_position = round(random.uniform(
-                    target_zone_end + 0.1,
-                    min(100, target_zone_end + NEAR_MISS_BAND)
-                ), 2)
-        else:  # trials 1–3: genuinely random (could hit or miss)
-            luck_final_position = round(random.uniform(0, 100), 2)
-
     return jsonify({
         'trial_number': trial_num,
         'bar_speed': bar_speed,
@@ -296,7 +386,6 @@ def generate_bar_trial():
         'target_zone_start': target_zone_start,
         'target_zone_width': TARGET_ZONE_WIDTH,
         'optimal_stop': optimal_stop,
-        'luck_final_position': luck_final_position
     })
 
 
@@ -304,14 +393,22 @@ def generate_bar_trial():
 def evaluate_trial():
     data = request.json or {}
 
-    bar_position = float(data.get('bar_position', 0))
-    target_zone_start = float(data.get('target_zone_start', 0))
-    target_zone_width = float(data.get('target_zone_width', TARGET_ZONE_WIDTH))
+    frame_type = session.get('frame_type', 'skill')
+    loss_frame = session.get('loss_frame', 'clear_loss')
     trial_number = parse_int(data.get('trial_number'), 0)
+    bar_position = float(data.get('bar_position', 0))
 
-    target_zone_end = target_zone_start + target_zone_width
+    # For luck condition, use wheel zone sent from frontend
+    if frame_type == 'luck':
+        target_zone_start = float(data.get('wheel_zone_start', 0))
+        target_zone_end = float(data.get('wheel_zone_end', 10))
+        target_zone_width = target_zone_end - target_zone_start
+    else:
+        target_zone_start = float(data.get('target_zone_start', 0))
+        target_zone_width = float(data.get('target_zone_width', TARGET_ZONE_WIDTH))
+        target_zone_end = target_zone_start + target_zone_width
+
     target_center = target_zone_start + (target_zone_width / 2)
-
     is_hit = target_zone_start <= bar_position <= target_zone_end
     distance_from_center = abs(bar_position - target_center)
 
@@ -319,7 +416,6 @@ def evaluate_trial():
         (target_zone_start - NEAR_MISS_BAND <= bar_position < target_zone_start) or
         (target_zone_end < bar_position <= target_zone_end + NEAR_MISS_BAND)
     )
-    loss_frame = session.get('loss_frame', 'clear_loss')
     is_near_miss = (not is_hit) and near_miss_raw and loss_frame == 'near_miss'
 
     if is_hit:
@@ -333,7 +429,7 @@ def evaluate_trial():
         'record_type': 'trial',
         'participant_id': session.get('participant_id', 'unknown'),
         'condition_id': session.get('condition_id'),
-        'frame_type': session.get('frame_type'),
+        'frame_type': frame_type,
         'loss_frame': loss_frame,
         'trial_number': trial_number,
         'bar_position': round(bar_position, 2),
@@ -362,7 +458,7 @@ def evaluate_trial():
         'is_near_miss': is_near_miss,
         'near_miss_raw': near_miss_raw,
         'distance_from_center': round(distance_from_center, 2),
-        'feedback': generate_feedback(outcome, distance_from_center),
+        'feedback': generate_feedback(outcome, distance_from_center, frame_type),
         'trial_count': session['trial_count'],
         'max_trials': MAX_TRIALS,
         'done': session['trial_count'] >= MAX_TRIALS
@@ -372,16 +468,21 @@ def evaluate_trial():
 @app.route('/api/save-post-survey', methods=['POST'])
 def save_post_survey():
     data = request.json or {}
+
+    wants_more_rounds = data.get('wants_more_rounds')
     desired_rounds_next_time = parse_int(data.get('desired_rounds_next_time'), 0)
     confidence_impact = parse_int(data.get('confidence_impact'), 0)
     self_rated_accuracy = parse_int(data.get('self_rated_accuracy'), 0)
+    frustration = parse_int(data.get('frustration'), 0)
+    motivation = parse_int(data.get('motivation'), 0)
+    luck_vs_skill = parse_int(data.get('luck_vs_skill'), 0)
 
+    if not isinstance(wants_more_rounds, bool):
+        return jsonify({'success': False, 'error': 'wants_more_rounds must be true or false'}), 400
     if desired_rounds_next_time < 1 or desired_rounds_next_time > 5:
         return jsonify({'success': False, 'error': 'desired_rounds_next_time must be 1-5'}), 400
-    if confidence_impact < 1 or confidence_impact > 7:
-        return jsonify({'success': False, 'error': 'confidence_impact must be 1-7'}), 400
-    if self_rated_accuracy < 1 or self_rated_accuracy > 7:
-        return jsonify({'success': False, 'error': 'self_rated_accuracy must be 1-7'}), 400
+    if not all(1 <= v <= 7 for v in [confidence_impact, self_rated_accuracy, frustration, motivation, luck_vs_skill]):
+        return jsonify({'success': False, 'error': 'scale questions must be 1-7'}), 400
 
     survey = {
         'record_type': 'post_survey',
@@ -389,9 +490,13 @@ def save_post_survey():
         'condition_id': session.get('condition_id'),
         'frame_type': session.get('frame_type'),
         'loss_frame': session.get('loss_frame'),
+        'wants_more_rounds': wants_more_rounds,
         'desired_rounds_next_time': desired_rounds_next_time,
         'confidence_impact': confidence_impact,
-        'self_rated_accuracy': self_rated_accuracy
+        'self_rated_accuracy': self_rated_accuracy,
+        'frustration': frustration,
+        'motivation': motivation,
+        'luck_vs_skill': luck_vs_skill
     }
 
     session['post_survey'] = survey
@@ -417,7 +522,9 @@ def get_summary():
         'near_misses': sum(1 for t in trials if t.get('is_near_miss')),
         'losses': sum(1 for t in trials if t.get('outcome') == 'loss'),
         'trials': trials,
-        'post_survey': session.get('post_survey')
+        'post_survey': session.get('post_survey'),
+        'age': session.get('age'),
+        'gender': session.get('gender')
     }
 
     save_record(participant_id, 'summary', summary)
@@ -430,27 +537,37 @@ def export_all_data():
 
     if db:
         for r in Trial.query.all():
-            all_data.append({'record_type': 'trial', 'participant_id': r.participant_id,
+            all_data.append({
+                'record_type': 'trial', 'participant_id': r.participant_id,
                 'timestamp': r.timestamp, 'condition_id': r.condition_id,
                 'frame_type': r.frame_type, 'loss_frame': r.loss_frame,
                 'trial_number': r.trial_number, 'bar_position': r.bar_position,
                 'target_zone_start': r.target_zone_start, 'target_zone_end': r.target_zone_end,
                 'distance_from_center': r.distance_from_center, 'is_hit': r.is_hit,
                 'near_miss_raw': r.near_miss_raw, 'is_near_miss': r.is_near_miss,
-                'outcome': r.outcome})
+                'outcome': r.outcome
+            })
         for r in PostSurvey.query.all():
-            all_data.append({'record_type': 'post_survey', 'participant_id': r.participant_id,
+            all_data.append({
+                'record_type': 'post_survey', 'participant_id': r.participant_id,
                 'timestamp': r.timestamp, 'condition_id': r.condition_id,
                 'frame_type': r.frame_type, 'loss_frame': r.loss_frame,
+                'wants_more_rounds': r.wants_more_rounds,
                 'desired_rounds_next_time': r.desired_rounds_next_time,
                 'confidence_impact': r.confidence_impact,
-                'self_rated_accuracy': r.self_rated_accuracy})
+                'self_rated_accuracy': r.self_rated_accuracy,
+                'frustration': r.frustration, 'motivation': r.motivation,
+                'luck_vs_skill': r.luck_vs_skill
+            })
         for r in Summary.query.all():
-            all_data.append({'record_type': 'summary', 'participant_id': r.participant_id,
+            all_data.append({
+                'record_type': 'summary', 'participant_id': r.participant_id,
                 'timestamp': r.timestamp, 'condition_id': r.condition_id,
                 'frame_type': r.frame_type, 'loss_frame': r.loss_frame,
                 'trial_count': r.trial_count, 'hits': r.hits,
-                'near_misses': r.near_misses, 'losses': r.losses})
+                'near_misses': r.near_misses, 'losses': r.losses,
+                'age': r.age, 'gender': r.gender
+            })
     else:
         for filename in os.listdir(DATA_DIR):
             if not filename.endswith('.jsonl'):
@@ -462,10 +579,7 @@ def export_all_data():
                     if line:
                         all_data.append(json.loads(line))
 
-    return jsonify({
-        'total_records': len(all_data),
-        'data': all_data
-    })
+    return jsonify({'total_records': len(all_data), 'data': all_data})
 
 
 if __name__ == '__main__':
