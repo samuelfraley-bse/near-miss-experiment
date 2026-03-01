@@ -438,14 +438,17 @@ def evaluate_trial():
                 near_miss_raw = is_near_miss
                 outcome = 'near_miss' if is_near_miss else 'loss'
     else:
-        # Luck condition: wheel outcome already engineered on frontend
-        is_hit = target_zone_start <= bar_position <= target_zone_end
-        distance_from_center = abs(bar_position - target_center)
-        near_miss_raw = (
-            (target_zone_start - NEAR_MISS_BAND <= bar_position < target_zone_start) or
-            (target_zone_end < bar_position <= target_zone_end + NEAR_MISS_BAND)
-        )
-        is_near_miss = (not is_hit) and near_miss_raw and loss_frame == 'near_miss'
+        # Luck condition: wheel outcome engineered on frontend — trust shown_outcome
+        # shown_outcome is 'hit', 'near_miss', or 'clear_loss'
+        shown_outcome = data.get('shown_outcome')
+        is_hit = (shown_outcome == 'hit')
+        # near_miss_raw: reel physically stopped close to zone (true regardless of condition)
+        near_miss_raw = (shown_outcome == 'near_miss')
+        # is_near_miss: physically close AND condition frames it as near-miss
+        is_near_miss = near_miss_raw and (loss_frame == 'near_miss')
+        # Circular distance on 0–99 reel (positions wrap around)
+        linear_dist = abs(bar_position - target_center)
+        distance_from_center = min(linear_dist, 100 - linear_dist)
         if is_hit:
             outcome = 'hit'
         elif is_near_miss:

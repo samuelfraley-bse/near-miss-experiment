@@ -1,86 +1,66 @@
 ﻿# Project Status (Current App)
 
-Last updated: 2026-02-23
+Last updated: 2026-03-01
 
 ## What the app currently does
 
-This is a Flask-based behavioral experiment app with a browser UI.
+Flask-based behavioral experiment. 2×2 between-subjects design:
+- `frame_type`: `skill` or `luck`
+- `loss_frame`: `near_miss` or `clear_loss`
 
-- Participants are assigned to a 2x2 condition at session start:
-  - `frame_type`: `skill` or `luck`
-  - `loss_frame`: `near_miss` or `clear_loss`
-- The game played in the UI is currently a bar-timing task (not a slot machine).
-- Each participant completes 5 rounds (`MAX_TRIALS = 5`).
-- After rounds, participants complete a 3-question post-survey.
-- A session summary is shown at the end.
+Conditions are **balanced** — new participants are assigned to whichever condition has the fewest completions so far (`assign_balanced_condition()` in `app.py`).
+
+### Skill condition
+- Bar sweeps left-right rapidly (ping-pong, ~560ms cycle)
+- Bar launches automatically after countdown — no Start button
+- Participant presses SPACE or STOP; bar position hidden immediately
+- Outcome scored server-side: last trial always near-miss; other misses near or far from zone determine outcome
+
+### Luck condition
+- "Number Draw" reel game: a slot-machine style reel of numbers 0–99 spins and decelerates
+- A green winning zone is shown; outcome determined by where reel stops
+- Reel outcome is engineered client-side: last round always near-miss; earlier rounds weighted toward condition
 
 ## Current participant flow
 
-1. Welcome screen (`/`)
-- User clicks Start.
-- Optional test mode is available with `?test=1` URL param to force any condition.
-
-2. Session start (`POST /api/start-session`)
-- Server creates/accepts participant ID.
-- Server randomizes or forces condition.
-- Server initializes session state in Flask session.
-
-3. Frame intro (`GET /api/get-frame`)
-- App shows frame title + description based on `frame_type`.
-
-4. Trial loop (5 rounds)
-- `POST /api/generate-bar-trial` returns randomized bar speed + target zone.
-- Participant presses Space or STOP.
-- `POST /api/evaluate-trial` scores hit / near miss / loss.
-- Near misses only count as near misses when:
-  - position is within `NEAR_MISS_BAND`
-  - and condition is `loss_frame = near_miss`
-- Trial result is appended to session and persisted.
-
-5. Post-survey (`POST /api/save-post-survey`)
-- Q1: desired rounds next time (1-5)
-- Q2: confidence ability impacts outcomes (1-7)
-- Q3: self-rated accuracy (1-7)
-
-6. Summary (`GET /api/get-summary`)
-- Returns condition, hit count, near-miss count, loss count, trial list, survey answers.
+1. **Welcome screen** — brief study description, click Continue
+2. **Consent screen** — informed consent checkbox; must agree to proceed
+3. **Demographics** — age (number input) and gender (radio); required before starting
+4. **Session start** (`POST /api/start-session`) — assigns participant ID, balanced condition, stores age/gender
+5. **Frame intro** (`GET /api/get-frame`) — condition-specific framing text:
+   - Skill: "Reaction Time Challenge — timing determines outcome"
+   - Luck: "Number Draw Game — outcome is random chance"
+6. **Trial loop** (5 rounds, each preceded by a 3-2-1 countdown):
+   - `POST /api/generate-bar-trial` — randomizes target zone
+   - Skill: bar ping-pongs, participant presses STOP
+   - Luck: reel spins, participant clicks DRAW, outcome engineered on frontend
+   - `POST /api/evaluate-trial` — scores hit / near_miss / loss
+7. **Post-survey** (`POST /api/save-post-survey`) — 6 questions:
+   - desired_rounds_next_time (1–5)
+   - confidence_impact (1–7)
+   - self_rated_accuracy (1–7)
+   - frustration (1–7)
+   - motivation (1–7)
+   - luck_vs_skill (1–7)
+8. **Summary** (`GET /api/get-summary`) — "Thanks for participating", closes session
 
 ## Storage behavior
 
-Two storage modes are implemented:
+Two storage modes:
 
-1. PostgreSQL mode (when `DATABASE_URL` is set)
-- Uses SQLAlchemy model `ExperimentResult`.
-- Records are stored as JSON text + metadata.
+1. **PostgreSQL** (when `DATABASE_URL` is set) — three flat SQLAlchemy tables: `Trial`, `PostSurvey`, `Summary`
+2. **Local fallback** — `experiment_data/<participant_id>.jsonl` (newline-delimited JSON)
 
-2. Local file fallback (default local dev)
-- App writes newline-delimited JSON (`.jsonl`) to `experiment_data/<participant_id>.jsonl`.
-- Record types written:
-  - `trial`
-  - `post_survey`
-  - `summary`
-
-Export endpoint:
-- `GET /api/export-all-data` returns all records from DB or local `.jsonl` files.
+Export: `GET /api/export-all-data` and `GET /api/export-csv?table=<name>`
 
 ## Key runtime settings (in `app.py`)
 
 - `MAX_TRIALS = 5`
-- `BAR_DURATION = 1500`
-- `MIN_SPEED = 0.5`
-- `MAX_SPEED = 0.9`
-- `TARGET_ZONE_WIDTH = 10`
-- `NEAR_MISS_BAND = 15`
-
-## What changed from older notes
-
-If you saw older docs saying single-trial or slot-machine gameplay:
-- Current UI and API flow run a 5-round bar task.
-- The old slot-machine path is not active in the current frontend flow.
+- `BAR_DURATION = 1500` (skill only)
+- `MIN_SPEED = 0.5`, `MAX_SPEED = 0.9`
+- `TARGET_ZONE_WIDTH = 10`, `NEAR_MISS_BAND = 15`
 
 ## Quick run commands
-
-Windows PowerShell:
 
 ```powershell
 python -m venv venv
@@ -89,9 +69,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Open:
-- `http://localhost:5000`
-- Test mode: `http://localhost:5000/?test=1`
+Open `http://localhost:5000` or `http://localhost:5000/?dev=1` for dev mode.
 
 ## AI prompt bank for classmates
 
@@ -181,6 +159,35 @@ Include target file structure and migration steps in order.
   - Per-table CSV export buttons
 - Added "Data Dashboard →" button to dev mode panel
 - Added `/api/export-csv?table=<name>` endpoint for CSV download
+
+### Stage 5 — Full redesign: reel game, consent/demographics, expanded survey (2026-03-01)
+- **Luck condition** completely replaced with a "Number Draw" reel/slot-machine game:
+  - Spinning reel of numbers 0–99 with a visible green winning zone
+  - Reel outcome engineered client-side: last round always near-miss; earlier rounds weighted by condition
+  - Separate reel screen (`wheel-screen`) with DRAW button
+- **Skill condition** updated:
+  - Bar launches immediately after countdown (no Start button)
+  - Bar position hidden on stop (blank screen shown while server evaluates)
+  - Last trial always near-miss server-side; other misses use zone proximity to determine outcome
+- **New screens**: consent (with checkbox), demographics (age + gender), 3-2-1 countdown between trials
+- **Balanced condition assignment**: `assign_balanced_condition()` replaces random assignment — checks `summaries` table to assign least-filled condition
+- **Expanded post-survey** from 3 to 6 questions — new fields:
+  - `frustration` (1–7)
+  - `motivation` (1–7)
+  - `luck_vs_skill` (1–7)
+  - `wants_more_rounds` (boolean derived from desired_rounds >= 3)
+- **Demographics collected**: `age` (integer), `gender` (text) — stored in `summaries`
+- **Schema changes** — run in Supabase SQL Editor before deploying:
+  ```sql
+  ALTER TABLE post_surveys ADD COLUMN wants_more_rounds BOOLEAN;
+  ALTER TABLE post_surveys ADD COLUMN frustration INTEGER;
+  ALTER TABLE post_surveys ADD COLUMN motivation INTEGER;
+  ALTER TABLE post_surveys ADD COLUMN luck_vs_skill INTEGER;
+  ALTER TABLE summaries ADD COLUMN age INTEGER;
+  ALTER TABLE summaries ADD COLUMN gender TEXT;
+  ```
+- **Condition-aware feedback**: `generate_feedback()` now takes `frame_type` and returns different messages for skill vs luck outcomes
+- **Summary screen** simplified — no longer shows hit/near-miss counts to participant
 
 ### Stage 4 — Luck condition redesign (2026-02-27)
 - Luck condition now has genuinely different mechanics from skill condition:

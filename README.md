@@ -114,20 +114,21 @@ Use the **session pooler** URL from Supabase (Project Settings → Database → 
 
 ## Participant flow
 
-1. **Welcome screen** — click Start (random condition) or use dev mode to force one
-2. **Session start** (`POST /api/start-session`) — assigns participant ID and condition
-3. **Frame intro** (`GET /api/get-frame`) — shows condition-specific framing text:
-   - Skill: "Reaction-Time Challenge — your timing determines where the bar stops"
-   - Luck: "Luck-Based Game — result determined by chance, not when you click"
-4. **Trial loop** (5 rounds)
-   - `POST /api/generate-bar-trial` — randomizes target zone; for luck condition also pre-determines final bar position
-   - **Skill**: bar sweeps left-to-right, participant times their stop
-   - **Luck**: bar ping-pongs slowly; clicking teleports bar to a server-predetermined position
+1. **Welcome screen** — study description, click Continue
+2. **Consent screen** — informed consent checkbox; must agree to proceed
+3. **Demographics** — age and gender (required before starting)
+4. **Session start** (`POST /api/start-session`) — assigns participant ID and balanced condition; stores age/gender
+5. **Frame intro** (`GET /api/get-frame`) — condition-specific framing:
+   - Skill: "Reaction Time Challenge — timing determines outcome"
+   - Luck: "Number Draw Game — outcome is random chance"
+6. **Trial loop** (5 rounds, each preceded by 3-2-1 countdown)
+   - `POST /api/generate-bar-trial` — randomizes target zone
+   - **Skill**: bar ping-pongs rapidly, participant presses STOP; bar position hidden on stop
+   - **Luck**: slot-machine reel spins, participant clicks DRAW; outcome engineered client-side
    - `POST /api/evaluate-trial` — scores as `hit`, `near_miss`, or `loss`
-   - For luck condition: trials 1–3 random outcome; trials 4–5 guaranteed near-miss position
-   - Near misses only labeled "So close!" when `loss_frame = near_miss`
-5. **Post-survey** (`POST /api/save-post-survey`) — 3 questions
-6. **Summary** (`GET /api/get-summary`) — shows results, saves final record
+   - Last trial always near-miss in both conditions; earlier trials weighted by condition
+7. **Post-survey** (`POST /api/save-post-survey`) — 6 questions (desired rounds, confidence, closeness, frustration, motivation, luck vs skill)
+8. **Summary** (`GET /api/get-summary`) — "Thanks for participating", saves final record
 
 ---
 
@@ -149,13 +150,16 @@ Three tables in Supabase (auto-created on first deploy):
 |---|---|
 | participant_id, condition_id, frame_type, loss_frame | string |
 | desired_rounds_next_time | integer (1–5) |
-| confidence_impact, self_rated_accuracy | integer (1–7) |
+| confidence_impact, self_rated_accuracy, frustration, motivation, luck_vs_skill | integer (1–7) |
+| wants_more_rounds | boolean |
 
 **`summaries`** — one row per session
 | Field | Type |
 |---|---|
 | participant_id, condition_id, frame_type, loss_frame | string |
 | trial_count, hits, near_misses, losses | integer |
+| age | integer |
+| gender | text |
 
 ---
 

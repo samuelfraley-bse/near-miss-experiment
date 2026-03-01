@@ -3,7 +3,7 @@ NEAR-MISS STUDY APP
 Current Project Structure and Architecture
 ===============================================================================
 
-Last updated: 2026-02-27
+Last updated: 2026-03-01
 
 PROJECT LAYOUT
 ==============
@@ -43,41 +43,46 @@ RUNTIME FLOW (CURRENT)
 1) Browser loads GET /
    - app.py serves templates/index.html
 
-2) Session starts: POST /api/start-session
+2) Welcome screen → Consent screen → Demographics screen
+   - Participant reads study info, checks consent box
+   - Enters age and gender (required)
+
+3) Session starts: POST /api/start-session
    - Assigns participant_id (prefix P or DEV_ in dev mode)
-   - Sets condition:
-     - frame_type: skill | luck
-     - loss_frame: near_miss | clear_loss
-     - condition_id: <frame_type>_<loss_frame>
-   - Initializes session trial state
+   - Balanced condition assignment via assign_balanced_condition():
+     - Queries summaries table to find least-filled condition
+     - Sets frame_type (skill|luck) and loss_frame (near_miss|clear_loss)
+   - Stores age and gender in session
 
-3) Frame intro: GET /api/get-frame
-   - Skill: "Reaction-Time Challenge" — timing determines outcome
-   - Luck: "Luck-Based Game" — result is random, not skill-based
+4) Frame intro: GET /api/get-frame
+   - Skill: "Reaction Time Challenge" — timing determines outcome
+   - Luck: "Number Draw Game" — outcome is random chance
 
-4) Trial loop (MAX_TRIALS = 5)
-   - POST /api/generate-bar-trial:
-     - Returns bar speed and target zone for all conditions
-     - For luck condition: also pre-computes luck_final_position
-       - Trials 1-3: random position (0-100%)
-       - Trials 4-5: guaranteed near-miss position (within NEAR_MISS_BAND)
-   - Skill: bar sweeps left-to-right, participant times their stop
-   - Luck: bar ping-pongs slowly; click teleports bar to luck_final_position
-   - POST /api/evaluate-trial: computes hit / near_miss / loss
-     - near_miss label only applied when loss_frame == near_miss
+5) Trial loop (MAX_TRIALS = 5) — each trial preceded by 3-2-1 countdown
+   - POST /api/generate-bar-trial: returns target zone config
+   - Skill: bar ping-pongs rapidly (~560ms cycle), participant presses STOP;
+     bar position hidden immediately; evaluate-trial scores outcome
+   - Luck: reel spins with engineered outcome (client-side):
+     - Last round: always near_miss
+     - Earlier rounds: weighted toward condition (80% match)
+   - POST /api/evaluate-trial: scores hit / near_miss / loss
 
-5) Post survey: POST /api/save-post-survey
+6) Post survey: POST /api/save-post-survey
    - desired_rounds_next_time: 1..5
+   - wants_more_rounds: boolean (derived from >= 3)
    - confidence_impact: 1..7
    - self_rated_accuracy: 1..7
+   - frustration: 1..7
+   - motivation: 1..7
+   - luck_vs_skill: 1..7
 
-6) Summary: GET /api/get-summary
-   - Returns condition, counts, trials, post_survey
+7) Summary: GET /api/get-summary
+   - Saves summary record with age/gender; shows "thanks" screen
 
-7) Data export: GET /api/export-all-data
+8) Data export: GET /api/export-all-data
    - Returns all records from DB (if configured) or local jsonl files
 
-8) CSV export: GET /api/export-csv?table=<trials|post_surveys|summaries>
+9) CSV export: GET /api/export-csv?table=<trials|post_surveys|summaries>
    - Downloads a CSV of the specified table
 
 ===============================================================================
@@ -107,34 +112,56 @@ Storage mode B: Local fallback (default for local dev)
 - experiment_data/<participant_id>.jsonl
 - Newline-delimited JSON records
 
-Record types written:
-- trial
-- post_survey
-- summary
+Record types written: trial, post_survey, summary
 
-Important notes:
-- Near-miss label is condition-aware.
-  If loss_frame is clear_loss, near_miss_raw may be true but outcome is loss.
-- For luck condition, bar_position saved is the server-predetermined position,
-  not where the bar was visually when the participant clicked.
+trials columns (unchanged):
+- participant_id, condition_id, frame_type, loss_frame, timestamp
+- trial_number, bar_position, target_zone_start, target_zone_end, distance_from_center
+- is_hit, near_miss_raw, is_near_miss (booleans), outcome
+
+post_surveys columns:
+- participant_id, condition_id, frame_type, loss_frame, timestamp
+- wants_more_rounds (boolean)
+- desired_rounds_next_time (1-5)
+- confidence_impact, self_rated_accuracy, frustration, motivation, luck_vs_skill (1-7)
+
+summaries columns:
+- participant_id, condition_id, frame_type, loss_frame, timestamp
+- trial_count, hits, near_misses, losses
+- age (integer), gender (text)
+
+SUPABASE SCHEMA CHANGES REQUIRED (run before deploying):
+  ALTER TABLE post_surveys ADD COLUMN wants_more_rounds BOOLEAN;
+  ALTER TABLE post_surveys ADD COLUMN frustration INTEGER;
+  ALTER TABLE post_surveys ADD COLUMN motivation INTEGER;
+  ALTER TABLE post_surveys ADD COLUMN luck_vs_skill INTEGER;
+  ALTER TABLE summaries ADD COLUMN age INTEGER;
+  ALTER TABLE summaries ADD COLUMN gender TEXT;
 
 ===============================================================================
 LUCK vs SKILL CONDITION MECHANICS
 ==================================
 
 Skill condition:
-- Bar sweeps linearly from left to right with slight sinusoidal wobble
-- Bar auto-stops after BAR_DURATION (1500ms) if participant doesn't click
-- Outcome depends entirely on when the participant stops the bar
+- Bar ping-pongs rapidly (~280ms per one-way pass = ~560ms cycle)
+- Bar launches immediately after countdown — no Start button
+- On STOP: bar position blanked instantly, evaluate-trial called server-side
+- Outcome logic (server-side):
+  - is_hit: position inside target zone
+  - Last trial: always near_miss (regardless of position)
+  - Other misses: if >35% from zone edge → clear loss; else → follow loss_frame
 
-Luck condition:
-- Bar ping-pongs slowly left-right (2800ms per cycle), runs indefinitely
-- Clicking STOP teleports bar to a server-predetermined position
-- Participant's timing has no effect on outcome
-- Trials 1-3: final position is genuinely random (can hit, near-miss, or loss)
-- Trials 4-5: final position guaranteed in near-miss band
-  - luck x near_miss: labeled "So close!" (near miss)
-  - luck x clear_loss: labeled "You lost this round." (near_miss_raw=true, is_near_miss=false)
+Luck condition (Number Draw reel game):
+- A slot-machine reel of numbers 0–99 spins and decelerates
+- Green winning zone shown before spin; participant clicks DRAW
+- Outcome engineered client-side in spinReel():
+  - Last round: shownOutcome = loss_frame (near_miss or clear_loss)
+  - Earlier rounds: 80% match condition; 40% chance of hit if no hit yet (from trial 2)
+- targetValue (reel stop position) chosen to match shownOutcome:
+  - hit: inside zone
+  - near_miss: 1-5 positions outside zone edge
+  - clear_loss: 28-48 positions outside zone
+- Server evaluates reel position against wheel_zone_start/end from frontend
 
 ===============================================================================
 HOW TO TEST ALL FOUR CONDITIONS
@@ -158,11 +185,16 @@ KEY CONFIG VALUES (app.py)
 ==========================
 
 MAX_TRIALS = 5
-BAR_DURATION = 1500       # ms — skill condition only (luck runs until clicked)
+BAR_DURATION = 1500       # ms (kept for reference; skill bar uses BAR_BOUNCE_PERIOD in JS)
 MIN_SPEED = 0.5
 MAX_SPEED = 0.9
 TARGET_ZONE_WIDTH = 10    # % of bar width
 NEAR_MISS_BAND = 15       # % either side of target zone
+
+JS constants (experiment.js):
+BAR_BOUNCE_PERIOD = 280   # ms per one-way pass for skill bar (~560ms full cycle)
+REEL_CELL_W = 70          # px width of each reel cell
+REEL_VISIBLE = 540        # px visible reel width
 
 ===============================================================================
 LOCAL SETUP (QUICK)
