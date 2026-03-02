@@ -337,9 +337,13 @@ body {
 }
 
 #stop-btn {
-    width: 200px;
+    width: min(200px, 100%);
     font-size: 16px;
     padding: 14px;
+}
+
+#wheel-spin-btn {
+    width: min(260px, 100%);
 }
 
 /* Slot Machine */
@@ -644,8 +648,8 @@ body {
     background: #fff;
     color: var(--text);
     border-radius: 6px;
-    width: 38px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     font-weight: 700;
     cursor: pointer;
 }
@@ -774,6 +778,18 @@ body {
         grid-template-columns: 1fr;
     }
 
+    .instructions {
+        font-size: 14px;
+    }
+
+    .likert-anchor {
+        font-size: 13px;
+    }
+
+    .status-item {
+        font-size: 14px;
+    }
+
     .slot-reel {
         width: 80px;
         height: 100px;
@@ -781,5 +797,11 @@ body {
 
     .reel-symbol {
         font-size: 36px;
+    }
+}
+
+@media (max-width: 400px) {
+    .screen {
+        padding: 20px 16px;
     }
 }
