@@ -47,6 +47,30 @@
         .filter-input { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; width: 180px; }
         .dev-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #7f8c8d; }
         .dev-toggle input { cursor: pointer; }
+
+        .analytics-wrap { padding: 16px 20px 22px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 14px; }
+        .stat-card { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; }
+        .stat-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
+        .stat-value { font-size: 22px; font-weight: 700; color: #1f2937; margin-top: 3px; }
+
+        .mini-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        .mini-table th, .mini-table td { border-bottom: 1px solid #edf2f7; padding: 7px 10px; text-align: left; font-size: 12px; }
+        .mini-table th { background: #f8fafc; color: #4b5563; font-weight: 600; }
+
+        .outcome-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+        .chart-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; background: #fff; }
+        .chart-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 8px; }
+        .chart-bars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; align-items: end; height: 170px; padding: 6px 4px 0; }
+        .bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .bar-stack { width: 26px; height: 130px; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column-reverse; background: #f9fafb; }
+        .seg-hit { background: #22c55e; }
+        .seg-near { background: #f59e0b; }
+        .seg-loss { background: #ef4444; }
+        .trial-label { font-size: 11px; color: #6b7280; }
+        .trial-total { font-size: 10px; color: #9ca3af; }
+        .chart-legend { display: flex; gap: 10px; margin-top: 8px; font-size: 11px; color: #4b5563; flex-wrap: wrap; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: -1px; }
     </style>
 </head>
 <body>
@@ -127,11 +151,48 @@
                 </table>
             </div>
         </div>
+
+        <div class="table-section">
+            <div class="table-header">
+                <div><h2>Analytics <span class="row-count" id="analytics-count"></span></h2></div>
+            </div>
+            <div class="analytics-wrap">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Started Participants</div>
+                        <div class="stat-value" id="stat-started">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Completed Participants</div>
+                        <div class="stat-value" id="stat-completed">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Trial Rows</div>
+                        <div class="stat-value" id="stat-trials">-</div>
+                    </div>
+                </div>
+
+                <table class="mini-table" id="assignment-summary-table">
+                    <thead>
+                        <tr>
+                            <th>condition_id</th>
+                            <th>assigned</th>
+                            <th>completed</th>
+                            <th>completion_rate</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assignment-summary-body"></tbody>
+                </table>
+
+                <div class="outcome-grid" id="outcome-grid"></div>
+            </div>
+        </div>
     </div>
 
     <script>
-        let allData = { trials: [], post_surveys: [], summaries: [] };
+        let allData = { assignments: [], trials: [], post_surveys: [], summaries: [] };
         let hideDev = false;
+        const CONDITION_ORDER = ['skill_near_miss', 'skill_clear_loss', 'luck_near_miss', 'luck_clear_loss'];
 
         document.getElementById('hide-dev').addEventListener('change', e => {
             hideDev = e.target.checked;
@@ -217,6 +278,113 @@
             renderTrials(allData.trials);
             renderSurveys(allData.post_surveys);
             renderSummaries(allData.summaries);
+            renderAnalytics();
+        }
+
+        function getUniqueParticipantCount(rows) {
+            return new Set(rows.map(r => String(r.participant_id))).size;
+        }
+
+        function conditionStats(assignments, summaries) {
+            const assigned = Object.fromEntries(CONDITION_ORDER.map(c => [c, 0]));
+            const completed = Object.fromEntries(CONDITION_ORDER.map(c => [c, 0]));
+
+            assignments.forEach(r => {
+                const cid = r.condition_id;
+                if (cid in assigned) assigned[cid] += 1;
+                if (cid in completed && r.completed === true) completed[cid] += 1;
+            });
+
+            // Fallback for older rows if `assignments` table is empty.
+            if (assignments.length === 0) {
+                summaries.forEach(r => {
+                    const cid = r.condition_id;
+                    if (cid in assigned) assigned[cid] += 1;
+                    if (cid in completed) completed[cid] += 1;
+                });
+            }
+
+            return { assigned, completed };
+        }
+
+        function renderAssignmentTable(assigned, completed) {
+            const body = document.getElementById('assignment-summary-body');
+            body.innerHTML = CONDITION_ORDER.map(cid => {
+                const a = assigned[cid] || 0;
+                const c = completed[cid] || 0;
+                const pct = a > 0 ? ((c / a) * 100).toFixed(1) + '%' : '-';
+                return `<tr><td>${cid}</td><td>${a}</td><td>${c}</td><td>${pct}</td></tr>`;
+            }).join('');
+        }
+
+        function outcomeCountsByTrial(trials, conditionId) {
+            const filtered = trials.filter(r => r.condition_id === conditionId);
+            const out = [];
+            for (let t = 1; t <= 5; t++) {
+                const rows = filtered.filter(r => Number(r.trial_number) === t);
+                const hit = rows.filter(r => r.framed_outcome === 'hit').length;
+                const near = rows.filter(r => r.framed_outcome === 'near_miss').length;
+                const loss = rows.filter(r => r.framed_outcome === 'loss').length;
+                out.push({ trial: t, hit, near, loss, total: rows.length });
+            }
+            return out;
+        }
+
+        function renderOutcomeCharts(trials) {
+            const grid = document.getElementById('outcome-grid');
+            const cards = CONDITION_ORDER.map(cid => {
+                const counts = outcomeCountsByTrial(trials, cid);
+                const maxTotal = Math.max(1, ...counts.map(c => c.total));
+
+                const bars = counts.map(c => {
+                    const hHit = Math.round((c.hit / maxTotal) * 130);
+                    const hNear = Math.round((c.near / maxTotal) * 130);
+                    const hLoss = Math.round((c.loss / maxTotal) * 130);
+                    return `
+                        <div class="bar-col">
+                            <div class="bar-stack" title="T${c.trial}: hit ${c.hit}, near_miss ${c.near}, miss ${c.loss}">
+                                <div class="seg-hit" style="height:${hHit}px;"></div>
+                                <div class="seg-near" style="height:${hNear}px;"></div>
+                                <div class="seg-loss" style="height:${hLoss}px;"></div>
+                            </div>
+                            <div class="trial-label">T${c.trial}</div>
+                            <div class="trial-total">n=${c.total}</div>
+                        </div>`;
+                }).join('');
+
+                return `
+                    <div class="chart-card">
+                        <div class="chart-title">${cid} (framed outcomes)</div>
+                        <div class="chart-bars">${bars}</div>
+                        <div class="chart-legend">
+                            <span><span class="legend-dot seg-hit"></span>hit</span>
+                            <span><span class="legend-dot seg-near"></span>near_miss</span>
+                            <span><span class="legend-dot seg-loss"></span>miss</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            grid.innerHTML = cards;
+        }
+
+        function renderAnalytics() {
+            const assignments = filterRows(allData.assignments);
+            const trials = filterRows(allData.trials);
+            const summaries = filterRows(allData.summaries);
+
+            const started = assignments.length ? getUniqueParticipantCount(assignments) : getUniqueParticipantCount(summaries);
+            const completed = assignments.length
+                ? getUniqueParticipantCount(assignments.filter(r => r.completed === true))
+                : getUniqueParticipantCount(summaries);
+
+            document.getElementById('stat-started').textContent = started;
+            document.getElementById('stat-completed').textContent = completed;
+            document.getElementById('stat-trials').textContent = trials.length;
+            document.getElementById('analytics-count').textContent = `(${trials.length} trial rows in view)`;
+
+            const { assigned, completed: completedByCondition } = conditionStats(assignments, summaries);
+            renderAssignmentTable(assigned, completedByCondition);
+            renderOutcomeCharts(trials);
         }
 
         function filterTable(tableId, query) {
@@ -234,6 +402,7 @@
             const res = await fetch('/api/export-all-data');
             const json = await res.json();
 
+            allData.assignments = json.data.filter(r => r.record_type === 'assignment');
             allData.trials = json.data.filter(r => r.record_type === 'trial');
             allData.post_surveys = json.data.filter(r => r.record_type === 'post_survey');
             allData.summaries = json.data.filter(r => r.record_type === 'summary');
