@@ -10,6 +10,9 @@ let experimentState = {
     lastOutcome: null,
     survey: {
         desiredRoundsNextTime: null,
+        improvementConfidence: null,
+        learningPotential: null,
+        feedbackCredibility: null,
         confidenceImpact: null,
         selfRatedAccuracy: null,
         frustration: null,
@@ -41,12 +44,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 scale.querySelectorAll('.likert-btn').forEach(b => b.classList.remove('selected'));
                 btn.classList.add('selected');
                 const value = parseInt(btn.dataset.value, 10);
-                if (scale.id === 'desired-rounds-scale') experimentState.survey.desiredRoundsNextTime = value;
-                if (scale.id === 'confidence-scale')     experimentState.survey.confidenceImpact = value;
-                if (scale.id === 'accuracy-scale')       experimentState.survey.selfRatedAccuracy = value;
-                if (scale.id === 'frustration-scale')    experimentState.survey.frustration = value;
-                if (scale.id === 'motivation-scale')     experimentState.survey.motivation = value;
-                if (scale.id === 'luckskill-scale')      experimentState.survey.luckVsSkill = value;
+                if (scale.id === 'desired-rounds-scale')          experimentState.survey.desiredRoundsNextTime = value;
+                if (scale.id === 'improvement-confidence-scale')  experimentState.survey.improvementConfidence = value;
+                if (scale.id === 'learning-potential-scale')      experimentState.survey.learningPotential = value;
+                if (scale.id === 'perceived-control-scale')       experimentState.survey.confidenceImpact = value;
+                if (scale.id === 'credibility-scale')             experimentState.survey.feedbackCredibility = value;
+                if (scale.id === 'accuracy-scale')                experimentState.survey.selfRatedAccuracy = value;
+                if (scale.id === 'frustration-scale')             experimentState.survey.frustration = value;
+                if (scale.id === 'motivation-scale')              experimentState.survey.motivation = value;
+                if (scale.id === 'luckskill-scale')               experimentState.survey.luckVsSkill = value;
                 checkSurveyComplete();
             });
         });
@@ -430,6 +436,9 @@ function advanceFromOutcome() {
 function showPostSurvey() {
     experimentState.survey = {
         desiredRoundsNextTime: null,
+        improvementConfidence: null,
+        learningPotential: null,
+        feedbackCredibility: null,
         confidenceImpact: null,
         selfRatedAccuracy: null,
         frustration: null,
@@ -444,12 +453,15 @@ function showPostSurvey() {
 function checkSurveyComplete() {
     const s = experimentState.survey;
     const complete =
-        s.desiredRoundsNextTime !== null &&
-        s.confidenceImpact      !== null &&
-        s.selfRatedAccuracy     !== null &&
-        s.frustration           !== null &&
-        s.motivation            !== null &&
-        s.luckVsSkill           !== null;
+        s.desiredRoundsNextTime   !== null &&
+        s.improvementConfidence   !== null &&
+        s.learningPotential       !== null &&
+        s.feedbackCredibility     !== null &&
+        s.confidenceImpact        !== null &&
+        s.selfRatedAccuracy       !== null &&
+        s.frustration             !== null &&
+        s.motivation              !== null &&
+        s.luckVsSkill             !== null;
     document.getElementById('submit-survey-btn').disabled = !complete;
 }
 
@@ -459,13 +471,16 @@ async function submitPostSurvey() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                wants_more_rounds: experimentState.survey.desiredRoundsNextTime >= 3,
-                desired_rounds_next_time: experimentState.survey.desiredRoundsNextTime,
-                confidence_impact:        experimentState.survey.confidenceImpact,
-                self_rated_accuracy:      experimentState.survey.selfRatedAccuracy,
-                frustration:              experimentState.survey.frustration,
-                motivation:               experimentState.survey.motivation,
-                luck_vs_skill:            experimentState.survey.luckVsSkill
+                wants_more_rounds:         experimentState.survey.desiredRoundsNextTime >= 1,
+                desired_rounds_next_time:  experimentState.survey.desiredRoundsNextTime,
+                improvement_confidence:    experimentState.survey.improvementConfidence,
+                learning_potential:        experimentState.survey.learningPotential,
+                feedback_credibility:      experimentState.survey.feedbackCredibility,
+                confidence_impact:         experimentState.survey.confidenceImpact,
+                self_rated_accuracy:       experimentState.survey.selfRatedAccuracy,
+                frustration:               experimentState.survey.frustration,
+                motivation:                experimentState.survey.motivation,
+                luck_vs_skill:             experimentState.survey.luckVsSkill
             })
         });
         const result = await response.json();
