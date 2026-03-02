@@ -486,11 +486,16 @@ def evaluate_trial():
             outcome = "hit"
             is_near_miss = False
             near_miss_raw = False
-        elif trial_number >= MAX_TRIALS:
-            # Last trial: always near miss so it lingers in mind during survey
+        elif trial_number >= MAX_TRIALS and loss_frame == "near_miss":
+            # Last trial for near_miss group: always near miss so it lingers in mind during survey
             outcome = "near_miss"
             is_near_miss = True
             near_miss_raw = True
+        elif trial_number >= MAX_TRIALS:
+            # Last trial for clear_loss group: always a clear loss
+            outcome = "loss"
+            is_near_miss = False
+            near_miss_raw = False
         else:
             # Check how far they were from the zone
             dist_from_zone = (

@@ -38,26 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.querySelectorAll('.likert-scale').forEach(scale => {
-        scale.querySelectorAll('.likert-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                scale.querySelectorAll('.likert-btn').forEach(b => b.classList.remove('selected'));
-                btn.classList.add('selected');
-                const value = parseInt(btn.dataset.value, 10);
-                if (scale.id === 'desired-rounds-scale')          experimentState.survey.desiredRoundsNextTime = value;
-                if (scale.id === 'improvement-confidence-scale')  experimentState.survey.improvementConfidence = value;
-                if (scale.id === 'learning-potential-scale')      experimentState.survey.learningPotential = value;
-                if (scale.id === 'perceived-control-scale')       experimentState.survey.confidenceImpact = value;
-                if (scale.id === 'credibility-scale')             experimentState.survey.feedbackCredibility = value;
-                if (scale.id === 'accuracy-scale')                experimentState.survey.selfRatedAccuracy = value;
-                if (scale.id === 'frustration-scale')             experimentState.survey.frustration = value;
-                if (scale.id === 'motivation-scale')              experimentState.survey.motivation = value;
-                if (scale.id === 'luckskill-scale')               experimentState.survey.luckVsSkill = value;
-                checkSurveyComplete();
-            });
-        });
-    });
-
     const params = new URLSearchParams(window.location.search);
     if (params.get('dev') === '1') {
         window._devMode = true;
@@ -433,54 +413,180 @@ function advanceFromOutcome() {
 
 // ─── POST SURVEY ──────────────────────────────────────────────────────────────
 
+// ─── POST SURVEY (one question at a time) ────────────────────────────────────
+
+const SURVEY_QUESTIONS = [
+    {
+        key: 'desiredRoundsNextTime',
+        text: 'How many additional rounds would you like to play?',
+        hint: 'Each round takes about 20 seconds.',
+        type: 'buttons',
+        options: [
+            { label: '0', value: 0 }, { label: '1', value: 1 },
+            { label: '2', value: 2 }, { label: '3', value: 3 },
+            { label: '4', value: 4 }, { label: '5', value: 5 }
+        ]
+    },
+    {
+        key: 'improvementConfidence',
+        text: 'How confident are you that you could do better if you played again?',
+        type: 'likert', min: 1, max: 7,
+        anchorLeft: 'Not at all', anchorRight: 'Extremely'
+    },
+    {
+        key: 'learningPotential',
+        text: 'How much do you think you could improve at this task with more practice?',
+        type: 'likert', min: 1, max: 7,
+        anchorLeft: 'Not at all', anchorRight: 'Very much'
+    },
+    {
+        key: 'confidenceImpact',
+        text: 'To what extent did you feel that your actions influenced the outcome of each round?',
+        type: 'likert', min: 1, max: 7,
+        anchorLeft: 'Not at all', anchorRight: 'Completely'
+    },
+    {
+        key: 'feedbackCredibility',
+        text: 'How believable was the feedback you received about your performance?',
+        type: 'likert', min: 1, max: 7,
+        anchorLeft: 'Not at all', anchorRight: 'Completely'
+    },
+    {
+        key: 'selfRatedAccuracy',
+        text: 'I felt like I was close to winning several times during the game.',
+        type: 'likert', min: 1, max: 7,
+        anchorLeft: 'Strongly disagree', anchorRight: 'Strongly agree'
+    },
+    {
+        key: 'frustration',
+        text: 'How frustrated did you feel during the game?',
+        type: 'likert', min: 1, max: 7,
+        anchorLeft: 'Not at all', anchorRight: 'Extremely'
+    },
+    {
+        key: 'motivation',
+        text: 'How motivated did you feel to keep trying?',
+        type: 'likert', min: 1, max: 7,
+        anchorLeft: 'Not at all', anchorRight: 'Extremely'
+    },
+    {
+        key: 'luckVsSkill',
+        text: 'How much did luck vs. skill determine your results?',
+        type: 'likert', min: 1, max: 7,
+        anchorLeft: 'All luck', anchorRight: 'All skill'
+    }
+];
+
+let surveyStep = 0;
+
 function showPostSurvey() {
     experimentState.survey = {
-        desiredRoundsNextTime: null,
-        improvementConfidence: null,
-        learningPotential: null,
-        feedbackCredibility: null,
-        confidenceImpact: null,
-        selfRatedAccuracy: null,
-        frustration: null,
-        motivation: null,
+        desiredRoundsNextTime: null, improvementConfidence: null,
+        learningPotential: null,    feedbackCredibility: null,
+        confidenceImpact: null,     selfRatedAccuracy: null,
+        frustration: null,          motivation: null,
         luckVsSkill: null
     };
-    document.querySelectorAll('.likert-btn').forEach(btn => btn.classList.remove('selected'));
-    document.getElementById('submit-survey-btn').disabled = true;
+    surveyStep = 0;
+    renderSurveyQuestion();
     switchScreen('post-survey-screen');
 }
 
-function checkSurveyComplete() {
-    const s = experimentState.survey;
-    const complete =
-        s.desiredRoundsNextTime   !== null &&
-        s.improvementConfidence   !== null &&
-        s.learningPotential       !== null &&
-        s.feedbackCredibility     !== null &&
-        s.confidenceImpact        !== null &&
-        s.selfRatedAccuracy       !== null &&
-        s.frustration             !== null &&
-        s.motivation              !== null &&
-        s.luckVsSkill             !== null;
-    document.getElementById('submit-survey-btn').disabled = !complete;
+function renderSurveyQuestion() {
+    const q       = SURVEY_QUESTIONS[surveyStep];
+    const total   = SURVEY_QUESTIONS.length;
+    const pct     = Math.round((surveyStep / total) * 100);
+    const isLast  = surveyStep === total - 1;
+
+    document.getElementById('survey-progress').textContent = (surveyStep + 1) + ' / ' + total;
+    document.getElementById('survey-progress-bar').style.width = pct + '%';
+    document.getElementById('survey-question-text').textContent = q.text;
+
+    const hintEl = document.getElementById('survey-question-hint');
+    if (q.hint) { hintEl.textContent = q.hint; hintEl.style.display = 'block'; }
+    else        { hintEl.style.display = 'none'; }
+
+    const area = document.getElementById('survey-answer-area');
+    area.innerHTML = '';
+
+    const nextBtn = document.getElementById('survey-next-btn');
+    nextBtn.disabled = true;
+    nextBtn.textContent = isLast ? 'Finish' : 'Next';
+
+    if (q.type === 'buttons') {
+        // Simple button row (e.g. 0–5)
+        const row = document.createElement('div');
+        row.className = 'likert-scale';
+        q.options.forEach(function(opt) {
+            const btn = document.createElement('button');
+            btn.className = 'likert-btn';
+            btn.textContent = opt.label;
+            btn.dataset.value = opt.value;
+            btn.addEventListener('click', function() {
+                row.querySelectorAll('.likert-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                experimentState.survey[q.key] = opt.value;
+                nextBtn.disabled = false;
+            });
+            row.appendChild(btn);
+        });
+        area.appendChild(row);
+    } else {
+        // 1–7 likert with anchors
+        const wrap = document.createElement('div');
+        wrap.className = 'likert-scale';
+        const leftAnchor = document.createElement('span');
+        leftAnchor.className = 'likert-anchor';
+        leftAnchor.textContent = q.anchorLeft;
+        wrap.appendChild(leftAnchor);
+        for (let v = q.min; v <= q.max; v++) {
+            const btn = document.createElement('button');
+            btn.className = 'likert-btn';
+            btn.textContent = v;
+            btn.dataset.value = v;
+            const val = v;
+            btn.addEventListener('click', function() {
+                wrap.querySelectorAll('.likert-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                experimentState.survey[q.key] = val;
+                nextBtn.disabled = false;
+            });
+            wrap.appendChild(btn);
+        }
+        const rightAnchor = document.createElement('span');
+        rightAnchor.className = 'likert-anchor';
+        rightAnchor.textContent = q.anchorRight;
+        wrap.appendChild(rightAnchor);
+        area.appendChild(wrap);
+    }
+}
+
+function surveyNext() {
+    surveyStep++;
+    if (surveyStep < SURVEY_QUESTIONS.length) {
+        renderSurveyQuestion();
+    } else {
+        submitPostSurvey();
+    }
 }
 
 async function submitPostSurvey() {
     try {
+        const s = experimentState.survey;
         const response = await fetch('/api/save-post-survey', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                wants_more_rounds:         experimentState.survey.desiredRoundsNextTime >= 1,
-                desired_rounds_next_time:  experimentState.survey.desiredRoundsNextTime,
-                improvement_confidence:    experimentState.survey.improvementConfidence,
-                learning_potential:        experimentState.survey.learningPotential,
-                feedback_credibility:      experimentState.survey.feedbackCredibility,
-                confidence_impact:         experimentState.survey.confidenceImpact,
-                self_rated_accuracy:       experimentState.survey.selfRatedAccuracy,
-                frustration:               experimentState.survey.frustration,
-                motivation:                experimentState.survey.motivation,
-                luck_vs_skill:             experimentState.survey.luckVsSkill
+                wants_more_rounds:         s.desiredRoundsNextTime >= 1,
+                desired_rounds_next_time:  s.desiredRoundsNextTime,
+                improvement_confidence:    s.improvementConfidence,
+                learning_potential:        s.learningPotential,
+                feedback_credibility:      s.feedbackCredibility,
+                confidence_impact:         s.confidenceImpact,
+                self_rated_accuracy:       s.selfRatedAccuracy,
+                frustration:               s.frustration,
+                motivation:                s.motivation,
+                luck_vs_skill:             s.luckVsSkill
             })
         });
         const result = await response.json();

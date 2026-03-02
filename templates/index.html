@@ -192,161 +192,28 @@
         </div>
 
         <!-- POST SURVEY SCREEN -->
+        <!-- POST SURVEY SCREEN (one question at a time) -->
         <div id="post-survey-screen" class="screen">
             <div class="self-report-content">
-                <h2>A few quick questions</h2>
-
-                <!-- I just commented out the old block 
-                <div class="likert-group">
-                    <label class="likert-label">If you had the chance to keep playing, how many more rounds would you want?</label>
-                    <div class="likert-scale" id="desired-rounds-scale">
-                        <button class="likert-btn" data-value="1">1</button>
-                        <button class="likert-btn" data-value="2">2</button>
-                        <button class="likert-btn" data-value="3">3</button>
-                        <button class="likert-btn" data-value="4">4</button>
-                        <button class="likert-btn" data-value="5">5+</button>
-                    </div>
-                </div> 
-                -->
-
-                <div class="likert-group">
-                    <label class="likert-label">How many additional rounds would you like to play?</label>
-                    <p style="color: #666; font-size: 0.85em; margin: -6px 0 12px 0;">Each round takes about 20 seconds.</p>
-                    <div class="likert-scale" id="desired-rounds-scale">
-                        <button class="likert-btn" data-value="0">0</button>
-                        <button class="likert-btn" data-value="1">1</button>
-                        <button class="likert-btn" data-value="2">2</button>
-                        <button class="likert-btn" data-value="3">3</button>
-                        <button class="likert-btn" data-value="4">4</button>
-                        <button class="likert-btn" data-value="5">5</button>
-                    </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <h2 style="margin:0;">A few quick questions</h2>
+                    <span id="survey-progress" style="font-size:0.85em; color:#888;"></span>
+                </div>
+                <div id="survey-progress-bar-wrap" style="height:4px; background:#e2e8f0; border-radius:4px; margin-bottom:28px;">
+                    <div id="survey-progress-bar" style="height:4px; background:#4299e1; border-radius:4px; width:0%; transition:width 0.3s;"></div>
                 </div>
 
                 <div class="likert-group">
-                    <label class="likert-label">How confident are you that you could do better if you played again?</label>
-                    <div class="likert-scale" id="improvement-confidence-scale">
-                        <span class="likert-anchor">Not at all</span>
-                        <button class="likert-btn" data-value="1">1</button>
-                        <button class="likert-btn" data-value="2">2</button>
-                        <button class="likert-btn" data-value="3">3</button>
-                        <button class="likert-btn" data-value="4">4</button>
-                        <button class="likert-btn" data-value="5">5</button>
-                        <button class="likert-btn" data-value="6">6</button>
-                        <button class="likert-btn" data-value="7">7</button>
-                        <span class="likert-anchor">Extremely</span>
-                    </div>
+                    <label class="likert-label" id="survey-question-text"></label>
+                    <p id="survey-question-hint" style="color:#666; font-size:0.85em; margin:-4px 0 12px 0; display:none;"></p>
+                    <div id="survey-answer-area"></div>
                 </div>
 
-                <div class="likert-group">
-                    <label class="likert-label">How much do you think you could improve at this task with more practice?</label>
-                    <div class="likert-scale" id="learning-potential-scale">
-                        <span class="likert-anchor">Not at all</span>
-                        <button class="likert-btn" data-value="1">1</button>
-                        <button class="likert-btn" data-value="2">2</button>
-                        <button class="likert-btn" data-value="3">3</button>
-                        <button class="likert-btn" data-value="4">4</button>
-                        <button class="likert-btn" data-value="5">5</button>
-                        <button class="likert-btn" data-value="6">6</button>
-                        <button class="likert-btn" data-value="7">7</button>
-                        <span class="likert-anchor">Very much</span>
-                    </div>
-                </div>
-
-                <div class="likert-group">
-                    <label class="likert-label">How believable was the feedback you received about your performance?</label>
-                    <div class="likert-scale" id="credibility-scale">
-                        <span class="likert-anchor">Not at all</span>
-                        <button class="likert-btn" data-value="1">1</button>
-                        <button class="likert-btn" data-value="2">2</button>
-                        <button class="likert-btn" data-value="3">3</button>
-                        <button class="likert-btn" data-value="4">4</button>
-                        <button class="likert-btn" data-value="5">5</button>
-                        <button class="likert-btn" data-value="6">6</button>
-                        <button class="likert-btn" data-value="7">7</button>
-                        <span class="likert-anchor">Completely</span>
-                    </div>
-                </div>
-
-                <div class="likert-group">
-                    <label class="likert-label">To what extent did you feel that your actions influenced the outcome of each round?</label>
-                    <div class="likert-scale" id="perceived-control-scale">
-                        <span class="likert-anchor">Not at all</span>
-                        <button class="likert-btn" data-value="1">1</button>
-                        <button class="likert-btn" data-value="2">2</button>
-                        <button class="likert-btn" data-value="3">3</button>
-                        <button class="likert-btn" data-value="4">4</button>
-                        <button class="likert-btn" data-value="5">5</button>
-                        <button class="likert-btn" data-value="6">6</button>
-                        <button class="likert-btn" data-value="7">7</button>
-                        <span class="likert-anchor">Completely</span>
-                    </div>
-                </div>
-
-                <div class="likert-group">
-                    <label class="likert-label">I felt like I was close to winning several times during the game.</label>
-                    <div class="likert-scale" id="accuracy-scale">
-                        <span class="likert-anchor">Strongly disagree</span>
-                        <button class="likert-btn" data-value="1">1</button>
-                        <button class="likert-btn" data-value="2">2</button>
-                        <button class="likert-btn" data-value="3">3</button>
-                        <button class="likert-btn" data-value="4">4</button>
-                        <button class="likert-btn" data-value="5">5</button>
-                        <button class="likert-btn" data-value="6">6</button>
-                        <button class="likert-btn" data-value="7">7</button>
-                        <span class="likert-anchor">Strongly agree</span>
-                    </div>
-                </div>
-
-                <div class="likert-group">
-                    <label class="likert-label">How frustrated did you feel during the game?</label>
-                    <div class="likert-scale" id="frustration-scale">
-                        <span class="likert-anchor">Not at all</span>
-                        <button class="likert-btn" data-value="1">1</button>
-                        <button class="likert-btn" data-value="2">2</button>
-                        <button class="likert-btn" data-value="3">3</button>
-                        <button class="likert-btn" data-value="4">4</button>
-                        <button class="likert-btn" data-value="5">5</button>
-                        <button class="likert-btn" data-value="6">6</button>
-                        <button class="likert-btn" data-value="7">7</button>
-                        <span class="likert-anchor">Extremely</span>
-                    </div>
-                </div>
-
-                <div class="likert-group">
-                    <label class="likert-label">How motivated did you feel to keep trying?</label>
-                    <div class="likert-scale" id="motivation-scale">
-                        <span class="likert-anchor">Not at all</span>
-                        <button class="likert-btn" data-value="1">1</button>
-                        <button class="likert-btn" data-value="2">2</button>
-                        <button class="likert-btn" data-value="3">3</button>
-                        <button class="likert-btn" data-value="4">4</button>
-                        <button class="likert-btn" data-value="5">5</button>
-                        <button class="likert-btn" data-value="6">6</button>
-                        <button class="likert-btn" data-value="7">7</button>
-                        <span class="likert-anchor">Extremely</span>
-                    </div>
-                </div>
-
-                <div class="likert-group">
-                    <label class="likert-label">How much did luck vs. skill determine your results?</label>
-                    <div class="likert-scale" id="luckskill-scale">
-                        <span class="likert-anchor">All luck</span>
-                        <button class="likert-btn" data-value="1">1</button>
-                        <button class="likert-btn" data-value="2">2</button>
-                        <button class="likert-btn" data-value="3">3</button>
-                        <button class="likert-btn" data-value="4">4</button>
-                        <button class="likert-btn" data-value="5">5</button>
-                        <button class="likert-btn" data-value="6">6</button>
-                        <button class="likert-btn" data-value="7">7</button>
-                        <span class="likert-anchor">All skill</span>
-                    </div>
-                </div>
-
-                <button class="btn btn-primary" id="submit-survey-btn" onclick="submitPostSurvey()" disabled>Finish</button>
+                <button class="btn btn-primary" id="survey-next-btn" onclick="surveyNext()" disabled style="margin-top:28px;">Next</button>
             </div>
         </div>
 
-        <!-- SUMMARY / END SCREEN -->
+                <!-- SUMMARY / END SCREEN -->
         <div id="summary-screen" class="screen">
             <div class="summary-content">
                 <h2>Thanks for participating!</h2>
