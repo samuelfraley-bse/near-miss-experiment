@@ -17,11 +17,10 @@ from __future__ import annotations
 import json
 import os
 from glob import glob
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import pandas as pd
 from scipy import stats
-
 
 DATA_DIR = "experiment_data"
 PARTICIPANT_EXPORT = "participant_summary_current.csv"
@@ -79,7 +78,9 @@ def split_record_types(df: pd.DataFrame):
     return trials, survey, summary
 
 
-def latest_per_participant(df: pd.DataFrame, participant_col: str = "participant_id") -> pd.DataFrame:
+def latest_per_participant(
+    df: pd.DataFrame, participant_col: str = "participant_id"
+) -> pd.DataFrame:
     """Keep only latest row per participant by timestamp when available."""
     if df.empty:
         return df
@@ -97,7 +98,9 @@ def latest_per_participant(df: pd.DataFrame, participant_col: str = "participant
     return out[cols].copy()
 
 
-def build_participant_table(summary_df: pd.DataFrame, survey_df: pd.DataFrame) -> pd.DataFrame:
+def build_participant_table(
+    summary_df: pd.DataFrame, survey_df: pd.DataFrame
+) -> pd.DataFrame:
     """Create one row per participant for condition-level analysis."""
     s_latest = latest_per_participant(summary_df)
     p_latest = latest_per_participant(survey_df)
@@ -112,8 +115,14 @@ def build_participant_table(summary_df: pd.DataFrame, survey_df: pd.DataFrame) -
                 for c in [
                     "participant_id",
                     "desired_rounds_next_time",
+                    "improvement_confidence",
+                    "learning_potential",
+                    "feedback_credibility",
                     "confidence_impact",
                     "self_rated_accuracy",
+                    "frustration",
+                    "motivation",
+                    "luck_vs_skill",
                 ]
                 if c in p_latest.columns
             ]
@@ -135,7 +144,9 @@ def build_participant_table(summary_df: pd.DataFrame, survey_df: pd.DataFrame) -
     return merged
 
 
-def print_overview(records_df: pd.DataFrame, trials_df: pd.DataFrame, participants_df: pd.DataFrame):
+def print_overview(
+    records_df: pd.DataFrame, trials_df: pd.DataFrame, participants_df: pd.DataFrame
+):
     print("\n" + "=" * 70)
     print("NEAR-MISS APP ANALYSIS (CURRENT SCHEMA)")
     print("=" * 70)
@@ -159,7 +170,9 @@ def print_condition_distribution(participants_df: pd.DataFrame):
 
     if {"frame_type", "loss_frame"}.issubset(participants_df.columns):
         print("\n2x2 cell counts (frame_type x loss_frame):")
-        ctab = pd.crosstab(participants_df["frame_type"], participants_df["loss_frame"], margins=True)
+        ctab = pd.crosstab(
+            participants_df["frame_type"], participants_df["loss_frame"], margins=True
+        )
         print(ctab)
 
 
@@ -220,7 +233,11 @@ def print_post_survey(participants_df: pd.DataFrame):
     if {"frame_type", "loss_frame"}.issubset(participants_df.columns):
         print("\nMeans by condition:")
         group_cols = ["frame_type", "loss_frame"]
-        print(participants_df.groupby(group_cols)[available].mean(numeric_only=True).round(2))
+        print(
+            participants_df.groupby(group_cols)[available]
+            .mean(numeric_only=True)
+            .round(2)
+        )
 
 
 def run_simple_tests(trials_df: pd.DataFrame, participants_df: pd.DataFrame):
@@ -229,7 +246,9 @@ def run_simple_tests(trials_df: pd.DataFrame, participants_df: pd.DataFrame):
     print("=" * 70)
 
     # Chi-square: labeled near-miss by loss frame
-    if {"loss_frame", "is_near_miss"}.issubset(trials_df.columns) and len(trials_df) >= 10:
+    if {"loss_frame", "is_near_miss"}.issubset(trials_df.columns) and len(
+        trials_df
+    ) >= 10:
         contingency = pd.crosstab(trials_df["loss_frame"], trials_df["is_near_miss"])
         if contingency.shape == (2, 2):
             chi2, p_val, _, _ = stats.chi2_contingency(contingency)
@@ -239,7 +258,9 @@ def run_simple_tests(trials_df: pd.DataFrame, participants_df: pd.DataFrame):
     # T-test: confidence by frame type
     if {"frame_type", "confidence_impact"}.issubset(participants_df.columns):
         tmp = participants_df[["frame_type", "confidence_impact"]].copy()
-        tmp["confidence_impact"] = pd.to_numeric(tmp["confidence_impact"], errors="coerce")
+        tmp["confidence_impact"] = pd.to_numeric(
+            tmp["confidence_impact"], errors="coerce"
+        )
         skill = tmp[tmp["frame_type"] == "skill"]["confidence_impact"].dropna()
         luck = tmp[tmp["frame_type"] == "luck"]["confidence_impact"].dropna()
         if len(skill) >= 2 and len(luck) >= 2:
