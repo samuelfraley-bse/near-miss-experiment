@@ -78,6 +78,7 @@ if DATABASE_URL:
         losses = db.Column(db.Integer)
         age = db.Column(db.Integer)
         gender = db.Column(db.String(20))
+        bdm_course_member = db.Column(db.Boolean)
 
     with app.app_context():
         db.create_all()
@@ -199,6 +200,7 @@ def save_record(participant_id, record_type, data):
                 losses=data.get("losses"),
                 age=data.get("age"),
                 gender=data.get("gender"),
+                bdm_course_member=data.get("bdm_course_member"),
             )
         else:
             return
@@ -358,6 +360,7 @@ def export_csv():
                 "losses",
                 "age",
                 "gender",
+                "bdm_course_member",
             ]
         else:
             return jsonify({"error": "unknown table"}), 400
@@ -401,6 +404,7 @@ def start_session():
     condition_id = f"{frame_type}_{loss_frame}"
     age = data.get("age")
     gender = data.get("gender")
+    bdm_course_member = data.get("bdm_course_member")
 
     session["participant_id"] = participant_id
     session["frame_type"] = frame_type
@@ -411,6 +415,7 @@ def start_session():
     session["post_survey"] = None
     session["age"] = age
     session["gender"] = gender
+    session["bdm_course_member"] = bdm_course_member
     session.modified = True
 
     return jsonify(
@@ -676,6 +681,7 @@ def get_summary():
         "post_survey": session.get("post_survey"),
         "age": session.get("age"),
         "gender": session.get("gender"),
+        "bdm_course_member": session.get("bdm_course_member"),
     }
 
     save_record(participant_id, "summary", summary)
@@ -744,6 +750,7 @@ def export_all_data():
                     "losses": r.losses,
                     "age": r.age,
                     "gender": r.gender,
+                    "bdm_course_member": r.bdm_course_member,
                 }
             )
     else:

@@ -105,6 +105,7 @@ One row per participant, saved when they reach the final screen.
 | `losses` | int | Count of trials where `outcome = 'loss'` |
 | `age` | int | From demographics screen |
 | `gender` | string | From demographics screen |
+| `bdm_course_member` | bool | Yes/No: member of Behavioral Decision Making course |
 
 Note: `hits + near_misses + losses = trial_count`.
 

@@ -110,6 +110,13 @@
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="radio" name="gender" value="prefer_not_to_say" onchange="checkDemographicsComplete()"> Prefer not to say</label>
                     </div>
                 </div>
+                <div class="likert-group" style="text-align: left; margin-top: 24px;">
+                    <label class="likert-label">Are you a member of the Behavioral Decision Making course?</label>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="radio" name="bdm_course_member" value="yes" onchange="checkDemographicsComplete()"> Yes</label>
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="radio" name="bdm_course_member" value="no" onchange="checkDemographicsComplete()"> No</label>
+                    </div>
+                </div>
                 <button class="btn btn-primary" id="demographics-btn" onclick="submitDemographicsAndStart()" disabled style="margin-top: 32px;">Start the Study</button>
             </div>
         </div>

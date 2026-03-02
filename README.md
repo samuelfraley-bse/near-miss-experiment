@@ -116,8 +116,8 @@ Use the **session pooler** URL from Supabase (Project Settings → Database → 
 
 1. **Welcome screen** — study description, click Continue
 2. **Consent screen** — informed consent checkbox; must agree to proceed
-3. **Demographics** — age and gender (required before starting)
-4. **Session start** (`POST /api/start-session`) — assigns participant ID and balanced condition; stores age/gender
+3. **Demographics** — age, gender, and BDM course membership (required before starting)
+4. **Session start** (`POST /api/start-session`) — assigns participant ID and balanced condition; stores demographics
 5. **Frame intro** (`GET /api/get-frame`) — condition-specific framing:
    - Skill: "Reaction Time Challenge — timing determines outcome"
    - Luck: "Number Draw Game — outcome is random chance"
@@ -160,6 +160,7 @@ Three tables in Supabase (auto-created on first deploy):
 | trial_count, hits, near_misses, losses | integer |
 | age | integer |
 | gender | text |
+| bdm_course_member | boolean |
 
 ---
 

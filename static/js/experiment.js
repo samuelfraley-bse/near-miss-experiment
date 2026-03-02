@@ -65,14 +65,16 @@ function checkConsent() {
 function checkDemographicsComplete() {
     const age = document.getElementById('age-input').value;
     const gender = document.querySelector('input[name="gender"]:checked');
-    const valid = age && parseInt(age) >= 10 && parseInt(age) <= 100 && gender;
+    const bdmCourseMember = document.querySelector('input[name="bdm_course_member"]:checked');
+    const valid = age && parseInt(age) >= 10 && parseInt(age) <= 100 && gender && bdmCourseMember;
     document.getElementById('demographics-btn').disabled = !valid;
 }
 
 function submitDemographicsAndStart() {
     const age = parseInt(document.getElementById('age-input').value);
     const gender = document.querySelector('input[name="gender"]:checked').value;
-    window._demographics = { age, gender };
+    const bdmCourseMember = document.querySelector('input[name="bdm_course_member"]:checked').value === 'yes';
+    window._demographics = { age, gender, bdmCourseMember };
     startExperiment();
 }
 
@@ -88,7 +90,8 @@ async function startExperiment(forceFrameType = null, forceLossFrame = null) {
                 force_loss_frame: forceLossFrame,
                 is_dev: window._devMode || false,
                 age: window._demographics?.age || null,
-                gender: window._demographics?.gender || null
+                gender: window._demographics?.gender || null,
+                bdm_course_member: window._demographics?.bdmCourseMember ?? null
             })
         });
         const data = await response.json();
