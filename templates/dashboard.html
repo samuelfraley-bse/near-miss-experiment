@@ -81,8 +81,7 @@
                         <th>participant_id</th><th>timestamp</th><th>condition_id</th>
                         <th>frame_type</th><th>loss_frame</th><th>trial_number</th>
                         <th>bar_position</th><th>target_zone_start</th><th>target_zone_end</th>
-                        <th>distance_from_center</th><th>outcome</th><th>is_hit</th>
-                        <th>is_near_miss</th><th>near_miss_raw</th>
+                        <th>distance_from_center</th><th>true_outcome</th><th>framed_outcome</th>
                     </tr></thead>
                     <tbody id="trials-body"></tbody>
                 </table>
@@ -174,10 +173,8 @@
                 <td>${r.target_zone_start?.toFixed(2) ?? ''}</td>
                 <td>${r.target_zone_end?.toFixed(2) ?? ''}</td>
                 <td>${r.distance_from_center?.toFixed(2) ?? ''}</td>
-                <td>${outcomePill(r.outcome)}</td>
-                <td>${pill(r.is_hit, 'pill-true', 'pill-false')}</td>
-                <td>${pill(r.is_near_miss, 'pill-true', 'pill-false')}</td>
-                <td>${pill(r.near_miss_raw, 'pill-true', 'pill-false')}</td>
+                <td>${outcomePill(r.true_outcome)}</td>
+                <td>${outcomePill(r.framed_outcome)}</td>
             </tr>`).join('');
         }
 
