@@ -39,10 +39,8 @@ if DATABASE_URL:
         target_zone_start = db.Column(db.Float)
         target_zone_end = db.Column(db.Float)
         distance_from_center = db.Column(db.Float)
-        is_hit = db.Column(db.Boolean)
-        near_miss_raw = db.Column(db.Boolean)
-        is_near_miss = db.Column(db.Boolean)
-        outcome = db.Column(db.String(20))
+        true_outcome = db.Column(db.String(20))
+        framed_outcome = db.Column(db.String(20))
 
     class PostSurvey(db.Model):
         __tablename__ = "post_surveys"
@@ -169,10 +167,8 @@ def save_record(participant_id, record_type, data):
                 target_zone_start=data.get("target_zone_start"),
                 target_zone_end=data.get("target_zone_end"),
                 distance_from_center=data.get("distance_from_center"),
-                is_hit=data.get("is_hit"),
-                near_miss_raw=data.get("near_miss_raw"),
-                is_near_miss=data.get("is_near_miss"),
-                outcome=data.get("outcome"),
+                true_outcome=data.get("true_outcome"),
+                framed_outcome=data.get("framed_outcome"),
             )
         elif record_type == "post_survey":
             record = PostSurvey(
@@ -315,10 +311,8 @@ def export_csv():
                 "target_zone_start",
                 "target_zone_end",
                 "distance_from_center",
-                "is_hit",
-                "near_miss_raw",
-                "is_near_miss",
-                "outcome",
+                "true_outcome",
+                "framed_outcome",
             ]
         elif table == "post_surveys":
             rows = PostSurvey.query.all()
@@ -532,6 +526,9 @@ def evaluate_trial():
         else:
             outcome = "loss"
 
+    true_outcome = "hit" if is_hit else ("near_miss" if near_miss_raw else "loss")
+    framed_outcome = outcome
+
     trial_data = {
         "record_type": "trial",
         "participant_id": session.get("participant_id", "unknown"),
@@ -543,10 +540,8 @@ def evaluate_trial():
         "target_zone_start": round(target_zone_start, 2),
         "target_zone_end": round(target_zone_end, 2),
         "distance_from_center": round(distance_from_center, 2),
-        "is_hit": is_hit,
-        "near_miss_raw": near_miss_raw,
-        "is_near_miss": is_near_miss,
-        "outcome": outcome,
+        "true_outcome": true_outcome,
+        "framed_outcome": framed_outcome,
     }
 
     trials = session.get("trials", [])
@@ -561,12 +556,10 @@ def evaluate_trial():
         {
             "success": True,
             "trial_number": trial_number,
-            "outcome": outcome,
-            "is_hit": is_hit,
-            "is_near_miss": is_near_miss,
-            "near_miss_raw": near_miss_raw,
+            "true_outcome": true_outcome,
+            "framed_outcome": framed_outcome,
             "distance_from_center": round(distance_from_center, 2),
-            "feedback": generate_feedback(outcome, distance_from_center, frame_type),
+            "feedback": generate_feedback(framed_outcome, distance_from_center, frame_type),
             "trial_count": session["trial_count"],
             "max_trials": MAX_TRIALS,
             "done": session["trial_count"] >= MAX_TRIALS,
@@ -651,9 +644,9 @@ def get_summary():
         "loss_frame": session.get("loss_frame"),
         "trial_count": len(trials),
         "max_trials": MAX_TRIALS,
-        "hits": sum(1 for t in trials if t.get("is_hit")),
-        "near_misses": sum(1 for t in trials if t.get("is_near_miss")),
-        "losses": sum(1 for t in trials if t.get("outcome") == "loss"),
+        "hits": sum(1 for t in trials if t.get("framed_outcome") == "hit"),
+        "near_misses": sum(1 for t in trials if t.get("framed_outcome") == "near_miss"),
+        "losses": sum(1 for t in trials if t.get("framed_outcome") == "loss"),
         "trials": trials,
         "post_survey": session.get("post_survey"),
         "age": session.get("age"),
@@ -683,10 +676,8 @@ def export_all_data():
                     "target_zone_start": r.target_zone_start,
                     "target_zone_end": r.target_zone_end,
                     "distance_from_center": r.distance_from_center,
-                    "is_hit": r.is_hit,
-                    "near_miss_raw": r.near_miss_raw,
-                    "is_near_miss": r.is_near_miss,
-                    "outcome": r.outcome,
+                    "true_outcome": r.true_outcome,
+                    "framed_outcome": r.framed_outcome,
                 }
             )
         for r in PostSurvey.query.all():
