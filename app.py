@@ -54,9 +54,12 @@ if DATABASE_URL:
         desired_rounds_next_time = db.Column(db.Integer)
         improvement_confidence = db.Column(db.Integer)
         learning_potential = db.Column(db.Integer)
-        feedback_credibility = db.Column(db.Integer)
+        expected_success = db.Column(db.Integer)
+        app_download_likelihood = db.Column(db.Integer)
         confidence_impact = db.Column(db.Integer)
+        feedback_credibility = db.Column(db.Integer)
         self_rated_accuracy = db.Column(db.Integer)
+        final_round_closeness = db.Column(db.Integer)
         frustration = db.Column(db.Integer)
         motivation = db.Column(db.Integer)
         luck_vs_skill = db.Column(db.Integer)
@@ -177,9 +180,12 @@ def save_record(participant_id, record_type, data):
                 desired_rounds_next_time=data.get("desired_rounds_next_time"),
                 improvement_confidence=data.get("improvement_confidence"),
                 learning_potential=data.get("learning_potential"),
-                feedback_credibility=data.get("feedback_credibility"),
+                expected_success=data.get("expected_success"),
+                app_download_likelihood=data.get("app_download_likelihood"),
                 confidence_impact=data.get("confidence_impact"),
+                feedback_credibility=data.get("feedback_credibility"),
                 self_rated_accuracy=data.get("self_rated_accuracy"),
+                final_round_closeness=data.get("final_round_closeness"),
                 frustration=data.get("frustration"),
                 motivation=data.get("motivation"),
                 luck_vs_skill=data.get("luck_vs_skill"),
@@ -327,9 +333,12 @@ def export_csv():
                 "desired_rounds_next_time",
                 "improvement_confidence",
                 "learning_potential",
-                "feedback_credibility",
+                "expected_success",
+                "app_download_likelihood",
                 "confidence_impact",
+                "feedback_credibility",
                 "self_rated_accuracy",
+                "final_round_closeness",
                 "frustration",
                 "motivation",
                 "luck_vs_skill",
@@ -559,7 +568,9 @@ def evaluate_trial():
             "true_outcome": true_outcome,
             "framed_outcome": framed_outcome,
             "distance_from_center": round(distance_from_center, 2),
-            "feedback": generate_feedback(framed_outcome, distance_from_center, frame_type),
+            "feedback": generate_feedback(
+                framed_outcome, distance_from_center, frame_type
+            ),
             "trial_count": session["trial_count"],
             "max_trials": MAX_TRIALS,
             "done": session["trial_count"] >= MAX_TRIALS,
@@ -575,9 +586,12 @@ def save_post_survey():
     desired_rounds_next_time = parse_int(data.get("desired_rounds_next_time"), 0)
     improvement_confidence = parse_int(data.get("improvement_confidence"), 0)
     learning_potential = parse_int(data.get("learning_potential"), 0)
-    feedback_credibility = parse_int(data.get("feedback_credibility"), 0)
+    expected_success = parse_int(data.get("expected_success"), 0)
+    app_download_likelihood = parse_int(data.get("app_download_likelihood"), 0)
     confidence_impact = parse_int(data.get("confidence_impact"), 0)
+    feedback_credibility = parse_int(data.get("feedback_credibility"), 0)
     self_rated_accuracy = parse_int(data.get("self_rated_accuracy"), 0)
+    final_round_closeness = parse_int(data.get("final_round_closeness"), 0)
     frustration = parse_int(data.get("frustration"), 0)
     motivation = parse_int(data.get("motivation"), 0)
     luck_vs_skill = parse_int(data.get("luck_vs_skill"), 0)
@@ -592,20 +606,28 @@ def save_post_survey():
         return jsonify(
             {"success": False, "error": "desired_rounds_next_time must be 0-5"}
         ), 400
+
     if not all(
         1 <= v <= 7
         for v in [
             improvement_confidence,
             learning_potential,
-            feedback_credibility,
+            app_download_likelihood,
             confidence_impact,
+            feedback_credibility,
             self_rated_accuracy,
+            final_round_closeness,
             frustration,
             motivation,
             luck_vs_skill,
         ]
     ):
         return jsonify({"success": False, "error": "scale questions must be 1-7"}), 400
+
+    if not (0 <= expected_success <= 10):
+        return jsonify(
+            {"success": False, "error": "expected_success must be 0-10"}
+        ), 400
 
     survey = {
         "record_type": "post_survey",
@@ -617,9 +639,12 @@ def save_post_survey():
         "desired_rounds_next_time": desired_rounds_next_time,
         "improvement_confidence": improvement_confidence,
         "learning_potential": learning_potential,
-        "feedback_credibility": feedback_credibility,
+        "expected_success": expected_success,
+        "app_download_likelihood": app_download_likelihood,
         "confidence_impact": confidence_impact,
+        "feedback_credibility": feedback_credibility,
         "self_rated_accuracy": self_rated_accuracy,
+        "final_round_closeness": final_round_closeness,
         "frustration": frustration,
         "motivation": motivation,
         "luck_vs_skill": luck_vs_skill,
@@ -693,9 +718,12 @@ def export_all_data():
                     "desired_rounds_next_time": r.desired_rounds_next_time,
                     "improvement_confidence": r.improvement_confidence,
                     "learning_potential": r.learning_potential,
-                    "feedback_credibility": r.feedback_credibility,
+                    "expected_success": r.expected_success,
+                    "app_download_likelihood": r.app_download_likelihood,
                     "confidence_impact": r.confidence_impact,
+                    "feedback_credibility": r.feedback_credibility,
                     "self_rated_accuracy": r.self_rated_accuracy,
+                    "final_round_closeness": r.final_round_closeness,
                     "frustration": r.frustration,
                     "motivation": r.motivation,
                     "luck_vs_skill": r.luck_vs_skill,
