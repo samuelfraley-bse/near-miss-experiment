@@ -134,7 +134,15 @@ Use the **session pooler** URL from Supabase (Project Settings → Database → 
 
 ## Database schema
 
-Three tables in Supabase (auto-created on first deploy):
+Four tables in Supabase (auto-created on first deploy):
+
+**`assignments`** — one row per started participant session
+| Field | Type |
+|---|---|
+| participant_id, condition_id, frame_type, loss_frame | string |
+| start_time, end_time | string (ISO datetime) |
+| is_dev | boolean |
+| completed | boolean |
 
 **`trials`** — one row per trial
 | Field | Type |

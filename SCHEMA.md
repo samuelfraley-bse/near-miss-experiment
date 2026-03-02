@@ -1,6 +1,6 @@
 # Database Schema
 
-Three tables are written to Supabase. One row per trial, one row per participant for surveys and summaries.
+Four tables are written to Supabase. One row per trial, one row per participant for surveys/summaries, and one row per assignment.
 
 ---
 
@@ -12,6 +12,25 @@ Three tables are written to Supabase. One row per trial, one row per participant
 | TARGET_ZONE_WIDTH | 10 | Skill zone width (percentage points) |
 | NEAR_MISS_BAND | 15 | Physical near-miss threshold (skill: pp; luck: reel units) |
 | Luck zone width | 8 | Always `wheelZoneStart + 8` (reel units) |
+
+---
+
+## Table: `assignments`
+
+One row per participant session at start. Used for balancing condition assignment.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | int | Auto-increment primary key |
+| `participant_id` | string | `P#####` for real participants, `DEV_#####` in dev mode |
+| `timestamp` | string | ISO datetime when assignment was created |
+| `start_time` | string | ISO datetime when participant started session |
+| `end_time` | string | ISO datetime when participant completed session (null if dropped) |
+| `condition_id` | string | `skill_near_miss`, `skill_clear_loss`, `luck_near_miss`, or `luck_clear_loss` |
+| `frame_type` | string | `skill` or `luck` |
+| `loss_frame` | string | `near_miss` or `clear_loss` |
+| `is_dev` | bool | Whether this assignment came from dev mode |
+| `completed` | bool | Set to `true` when summary is saved |
 
 ---
 

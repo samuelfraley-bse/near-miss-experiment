@@ -16,6 +16,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 db = None
 
 if DATABASE_URL:
+    from sqlalchemy import text
     from flask_sqlalchemy import SQLAlchemy
 
     if DATABASE_URL.startswith("postgres://"):
@@ -80,6 +81,19 @@ if DATABASE_URL:
         gender = db.Column(db.String(20))
         bdm_course_member = db.Column(db.Boolean)
 
+    class Assignment(db.Model):
+        __tablename__ = "assignments"
+        id = db.Column(db.Integer, primary_key=True)
+        participant_id = db.Column(db.String(50), unique=True, index=True)
+        timestamp = db.Column(db.String(50))
+        start_time = db.Column(db.String(50))
+        end_time = db.Column(db.String(50))
+        condition_id = db.Column(db.String(50))
+        frame_type = db.Column(db.String(20))
+        loss_frame = db.Column(db.String(20))
+        is_dev = db.Column(db.Boolean, default=False)
+        completed = db.Column(db.Boolean, default=False)
+
     with app.app_context():
         db.create_all()
 
@@ -105,7 +119,7 @@ def parse_int(value, default=0):
 
 
 def assign_balanced_condition():
-    """Assign new participant to whichever condition has fewest completions."""
+    """Assign new participant to whichever condition has fewest assignments."""
     all_conditions = [
         ("skill", "near_miss"),
         ("skill", "clear_loss"),
@@ -118,16 +132,16 @@ def assign_balanced_condition():
         from sqlalchemy import func
 
         rows = (
-            db.session.query(Summary.condition_id, func.count(Summary.id))
-            .filter(~Summary.participant_id.like("DEV_%"))
-            .group_by(Summary.condition_id)
+            db.session.query(Assignment.condition_id, func.count(Assignment.id))
+            .filter(~Assignment.participant_id.like("DEV_%"))
+            .group_by(Assignment.condition_id)
             .all()
         )
         for condition_id, count in rows:
             if condition_id in counts:
                 counts[condition_id] = count
     else:
-        # Count completed sessions from local jsonl files
+        # Count assignments from local jsonl files
         if os.path.exists(DATA_DIR):
             for filename in os.listdir(DATA_DIR):
                 if not filename.endswith(".jsonl") or filename.startswith("DEV_"):
@@ -138,7 +152,7 @@ def assign_balanced_condition():
                         line = line.strip()
                         if line:
                             record = json.loads(line)
-                            if record.get("record_type") == "summary":
+                            if record.get("record_type") == "assignment":
                                 cid = record.get("condition_id")
                                 if cid in counts:
                                     counts[cid] += 1
@@ -210,6 +224,52 @@ def save_record(participant_id, record_type, data):
         filename = f"{DATA_DIR}/{participant_id}.jsonl"
         with open(filename, "a", encoding="utf-8") as f:
             f.write(json.dumps(data) + "\n")
+
+
+def save_assignment(participant_id, frame_type, loss_frame, is_dev=False):
+    timestamp = datetime.now().isoformat()
+    condition_id = f"{frame_type}_{loss_frame}"
+    if db:
+        assignment = Assignment.query.filter_by(participant_id=participant_id).first()
+        if assignment is None:
+            assignment = Assignment(
+                participant_id=participant_id,
+                timestamp=timestamp,
+                start_time=timestamp,
+                end_time=None,
+                condition_id=condition_id,
+                frame_type=frame_type,
+                loss_frame=loss_frame,
+                is_dev=bool(is_dev),
+                completed=False,
+            )
+            db.session.add(assignment)
+        else:
+            assignment.timestamp = timestamp
+            assignment.start_time = timestamp
+            assignment.end_time = None
+            assignment.condition_id = condition_id
+            assignment.frame_type = frame_type
+            assignment.loss_frame = loss_frame
+            assignment.is_dev = bool(is_dev)
+            assignment.completed = False
+        db.session.commit()
+    else:
+        record = {
+            "record_type": "assignment",
+            "participant_id": participant_id,
+            "timestamp": timestamp,
+            "start_time": timestamp,
+            "end_time": None,
+            "condition_id": condition_id,
+            "frame_type": frame_type,
+            "loss_frame": loss_frame,
+            "is_dev": bool(is_dev),
+            "completed": False,
+        }
+        filename = f"{DATA_DIR}/{participant_id}.jsonl"
+        with open(filename, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
 
 
 def build_frame(frame_type, loss_frame):
@@ -362,6 +422,20 @@ def export_csv():
                 "gender",
                 "bdm_course_member",
             ]
+        elif table == "assignments":
+            rows = Assignment.query.all()
+            fields = [
+                "id",
+                "participant_id",
+                "timestamp",
+                "start_time",
+                "end_time",
+                "condition_id",
+                "frame_type",
+                "loss_frame",
+                "is_dev",
+                "completed",
+            ]
         else:
             return jsonify({"error": "unknown table"}), 400
 
@@ -391,17 +465,53 @@ def start_session():
     force_frame_type = data.get("force_frame_type")
     force_loss_frame = data.get("force_loss_frame")
 
-    # Dev mode: use forced condition. Real participants: balanced assignment.
-    if force_frame_type in ["skill", "luck"] and force_loss_frame in [
+    has_forced_condition = force_frame_type in ["skill", "luck"] and force_loss_frame in [
         "near_miss",
         "clear_loss",
-    ]:
-        frame_type = force_frame_type
-        loss_frame = force_loss_frame
-    else:
-        frame_type, loss_frame = assign_balanced_condition()
+    ]
 
-    condition_id = f"{frame_type}_{loss_frame}"
+    if db and not has_forced_condition:
+        # Lock assignment section so two concurrent starters don't choose the same underfilled bin.
+        db.session.execute(text("SELECT pg_advisory_xact_lock(:lock_key)"), {"lock_key": 20260302})
+        frame_type, loss_frame = assign_balanced_condition()
+        condition_id = f"{frame_type}_{loss_frame}"
+
+        assignment = Assignment.query.filter_by(participant_id=participant_id).first()
+        if assignment is None:
+            assignment_time = datetime.now().isoformat()
+            assignment = Assignment(
+                participant_id=participant_id,
+                timestamp=assignment_time,
+                start_time=assignment_time,
+                end_time=None,
+                condition_id=condition_id,
+                frame_type=frame_type,
+                loss_frame=loss_frame,
+                is_dev=bool(is_dev),
+                completed=False,
+            )
+            db.session.add(assignment)
+        else:
+            assignment_time = datetime.now().isoformat()
+            assignment.timestamp = assignment_time
+            assignment.start_time = assignment_time
+            assignment.end_time = None
+            assignment.condition_id = condition_id
+            assignment.frame_type = frame_type
+            assignment.loss_frame = loss_frame
+            assignment.is_dev = bool(is_dev)
+            assignment.completed = False
+        db.session.commit()
+    else:
+        # Dev mode or forced condition: use requested bin.
+        if has_forced_condition:
+            frame_type = force_frame_type
+            loss_frame = force_loss_frame
+        else:
+            frame_type, loss_frame = assign_balanced_condition()
+        condition_id = f"{frame_type}_{loss_frame}"
+        save_assignment(participant_id, frame_type, loss_frame, is_dev=is_dev)
+
     age = data.get("age")
     gender = data.get("gender")
     bdm_course_member = data.get("bdm_course_member")
@@ -684,6 +794,24 @@ def get_summary():
         "bdm_course_member": session.get("bdm_course_member"),
     }
 
+    if db:
+        assignment = Assignment.query.filter_by(participant_id=participant_id).first()
+        if assignment is not None:
+            assignment.completed = True
+            assignment.end_time = datetime.now().isoformat()
+    else:
+        end_time = datetime.now().isoformat()
+        assignment_complete = {
+            "record_type": "assignment_complete",
+            "participant_id": participant_id,
+            "timestamp": end_time,
+            "end_time": end_time,
+            "completed": True,
+        }
+        filename = f"{DATA_DIR}/{participant_id}.jsonl"
+        with open(filename, "a", encoding="utf-8") as f:
+            f.write(json.dumps(assignment_complete) + "\n")
+
     save_record(participant_id, "summary", summary)
     return jsonify(summary)
 
@@ -693,6 +821,21 @@ def export_all_data():
     all_data = []
 
     if db:
+        for r in Assignment.query.all():
+            all_data.append(
+                {
+                    "record_type": "assignment",
+                    "participant_id": r.participant_id,
+                    "timestamp": r.timestamp,
+                    "start_time": r.start_time,
+                    "end_time": r.end_time,
+                    "condition_id": r.condition_id,
+                    "frame_type": r.frame_type,
+                    "loss_frame": r.loss_frame,
+                    "is_dev": r.is_dev,
+                    "completed": r.completed,
+                }
+            )
         for r in Trial.query.all():
             all_data.append(
                 {
