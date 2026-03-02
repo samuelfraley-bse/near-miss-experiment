@@ -227,8 +227,17 @@ function stopBar() {
 
 // --- REEL GAME ---
 
-const REEL_CELL_W  = 70;
-const REEL_VISIBLE = 540;
+let REEL_CELL_W  = 70;
+let REEL_VISIBLE = 540;
+
+function updateReelDimensions() {
+    var outer = document.getElementById('reel-outer');
+    if (!outer) return;
+    var w = outer.offsetWidth || 540;
+    // aim for ~5 visible cells; clamp between 50 and 70 px per slot
+    REEL_CELL_W  = Math.max(50, Math.min(70, Math.floor(w / 5)));
+    REEL_VISIBLE = w;
+}
 
 function buildSequence() {
     var seq = [];
@@ -252,13 +261,15 @@ function buildReel() {
     REEL_SEQUENCE.forEach(function(v) {
         var cell   = document.createElement('div');
         var inZone = v >= zs && v <= ze;
-        cell.style.cssText = 'width:64px;height:110px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.5em;font-weight:800;border-radius:8px;margin:0 3px;user-select:none;' +
+        cell.style.cssText = 'width:' + (REEL_CELL_W - 6) + 'px;height:110px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.5em;font-weight:800;border-radius:8px;margin:0 3px;user-select:none;' +
             (inZone
                 ? 'background:#14532d;color:#4ade80;border:2px solid #22c55e;box-shadow:0 0 10px rgba(34,197,94,0.3);'
                 : 'background:#1e293b;color:#cbd5e0;');
         cell.textContent = v;
         track.appendChild(cell);
     });
+    var pointer = document.getElementById('reel-pointer');
+    if (pointer) pointer.style.width = (REEL_CELL_W - 6) + 'px';
     setReelPos(0);
 }
 
@@ -268,6 +279,7 @@ function setupReelTrial(config) {
     experimentState.wheelZoneEnd   = experimentState.wheelZoneStart + 8;
     document.getElementById('wheel-zone-label').textContent =
         'Winning zone: ' + experimentState.wheelZoneStart + '–' + experimentState.wheelZoneEnd;
+    updateReelDimensions();
     buildReel();
     document.getElementById('wheel-spin-btn').disabled = false;
     document.getElementById('spin-status').textContent = '';
@@ -379,10 +391,10 @@ function showOutcome(result) {
     // Hide the next button initially
     nextBtn.classList.add('hidden');
 
-    if (result.is_hit) {
+    if (result.framed_outcome === 'hit') {
         outcomeText.textContent = '🎉 You got it!';
         outcomeText.className   = 'outcome-text outcome-hit';
-    } else if (result.is_near_miss) {
+    } else if (result.framed_outcome === 'near_miss') {
         outcomeText.textContent = 'SO close!!';
         outcomeText.className   = 'outcome-text outcome-near-miss';
     } else {
@@ -397,7 +409,7 @@ function showOutcome(result) {
 
     // Delay showing the Next button so participants actually read the feedback
     // Clear-loss gets a shorter delay (message is brief), near-miss gets longer
-    const delay = result.is_near_miss ? 2000 : 1200;
+    const delay = result.framed_outcome === 'near_miss' ? 2000 : 1200;
     setTimeout(() => {
         nextBtn.classList.remove('hidden');
     }, delay);
