@@ -15,9 +15,12 @@ let experimentState = {
         feedbackCredibility: null,
         confidenceImpact: null,
         selfRatedAccuracy: null,
+        finalRoundCloseness: null,
         frustration: null,
         motivation: null,
-        luckVsSkill: null
+        luckVsSkill: null,
+        expectedSuccess: null,
+        appDownloadLikelihood: null
     },
     barRunning: false,
     barPosition: 0,
@@ -428,6 +431,7 @@ function advanceFromOutcome() {
 // ─── POST SURVEY (one question at a time) ────────────────────────────────────
 
 const SURVEY_QUESTIONS = [
+    // ─── PRIMARY DV ───
     {
         key: 'desiredRoundsNextTime',
         text: 'How many additional rounds would you like to play?',
@@ -439,6 +443,7 @@ const SURVEY_QUESTIONS = [
             { label: '4', value: 4 }, { label: '5', value: 5 }
         ]
     },
+    // ─── MEDIATORS (Rational Updating) ───
     {
         key: 'improvementConfidence',
         text: 'How confident are you that you could do better if you played again?',
@@ -451,6 +456,27 @@ const SURVEY_QUESTIONS = [
         type: 'likert', min: 1, max: 7,
         anchorLeft: 'Not at all', anchorRight: 'Very much'
     },
+    // ─── SECONDARY DVs ───
+    {
+        key: 'expectedSuccess',
+        text: 'If you played 10 more rounds, how many times do you think you would hit the target zone?',
+        type: 'buttons',
+        options: [
+            { label: '0', value: 0 }, { label: '1', value: 1 },
+            { label: '2', value: 2 }, { label: '3', value: 3 },
+            { label: '4', value: 4 }, { label: '5', value: 5 },
+            { label: '6', value: 6 }, { label: '7', value: 7 },
+            { label: '8', value: 8 }, { label: '9', value: 9 },
+            { label: '10', value: 10 }
+        ]
+    },
+    {
+        key: 'appDownloadLikelihood',
+        text: 'If this game were available as a free app, how likely would you be to download it?',
+        type: 'likert', min: 1, max: 7,
+        anchorLeft: 'Very unlikely', anchorRight: 'Very likely'
+    },
+    // ─── MANIPULATION CHECKS ───
     {
         key: 'confidenceImpact',
         text: 'To what extent did you feel that your actions influenced the outcome of each round?',
@@ -465,10 +491,17 @@ const SURVEY_QUESTIONS = [
     },
     {
         key: 'selfRatedAccuracy',
-        text: 'I felt like I was close to winning several times during the game.',
+        text: 'During the game, I frequently felt like I was very close to winning.',
         type: 'likert', min: 1, max: 7,
         anchorLeft: 'Strongly disagree', anchorRight: 'Strongly agree'
     },
+    {
+        key: 'finalRoundCloseness',
+        text: 'On your final round, how close did you feel you were to winning?',
+        type: 'likert', min: 1, max: 7,
+        anchorLeft: 'Not at all close', anchorRight: 'Extremely close'
+    },
+    // ─── COVARIATES ───
     {
         key: 'frustration',
         text: 'How frustrated did you feel during the game?',
@@ -491,13 +524,15 @@ const SURVEY_QUESTIONS = [
 
 let surveyStep = 0;
 
+
 function showPostSurvey() {
     experimentState.survey = {
         desiredRoundsNextTime: null, improvementConfidence: null,
-        learningPotential: null,    feedbackCredibility: null,
-        confidenceImpact: null,     selfRatedAccuracy: null,
-        frustration: null,          motivation: null,
-        luckVsSkill: null
+        learningPotential: null,    expectedSuccess: null,
+        appDownloadLikelihood: null, confidenceImpact: null,
+        feedbackCredibility: null,  selfRatedAccuracy: null,
+        finalRoundCloseness: null,  frustration: null,
+        motivation: null,           luckVsSkill: null
     };
     surveyStep = 0;
     renderSurveyQuestion();
@@ -593,9 +628,12 @@ async function submitPostSurvey() {
                 desired_rounds_next_time:  s.desiredRoundsNextTime,
                 improvement_confidence:    s.improvementConfidence,
                 learning_potential:        s.learningPotential,
-                feedback_credibility:      s.feedbackCredibility,
+                expected_success:          s.expectedSuccess,
+                app_download_likelihood:   s.appDownloadLikelihood,
                 confidence_impact:         s.confidenceImpact,
+                feedback_credibility:      s.feedbackCredibility,
                 self_rated_accuracy:       s.selfRatedAccuracy,
+                final_round_closeness:     s.finalRoundCloseness,
                 frustration:               s.frustration,
                 motivation:                s.motivation,
                 luck_vs_skill:             s.luckVsSkill
