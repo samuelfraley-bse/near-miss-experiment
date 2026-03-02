@@ -11,7 +11,7 @@
         .header { background: #2c3e50; color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
         .header h1 { font-size: 18px; font-weight: 600; }
         .header .badge { background: #e74c3c; color: white; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 10px; }
-        .export-all { display: flex; gap: 8px; }
+        .export-all { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
         .btn { padding: 7px 14px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 500; }
         .btn-export { background: #27ae60; color: white; }
         .btn-export:hover { background: #219a52; }
@@ -83,14 +83,31 @@
             <label class="dev-toggle" style="color:white;">
                 <input type="checkbox" id="hide-dev"> Hide DEV_ rows
             </label>
-            <button class="btn btn-export" onclick="exportCSV('trials')">↓ trials.csv</button>
-            <button class="btn btn-export" onclick="exportCSV('post_surveys')">↓ post_surveys.csv</button>
-            <button class="btn btn-export" onclick="exportCSV('summaries')">↓ summaries.csv</button>
-            <a href="/" class="btn btn-back">← App</a>
+            <button class="btn btn-export" onclick="exportCSV('assignments')">-> assignments.csv</button>
+            <button class="btn btn-export" onclick="exportCSV('trials')">-> trials.csv</button>
+            <button class="btn btn-export" onclick="exportCSV('post_surveys')">-> post_surveys.csv</button>
+            <button class="btn btn-export" onclick="exportCSV('summaries')">-> summaries.csv</button>
+            <a href="/" class="btn btn-back"><- App</a>
         </div>
     </div>
 
     <div class="content">
+        <div class="table-section">
+            <div class="table-header">
+                <div><h2>Assignments <span class="row-count" id="assignments-count"></span></h2></div>
+                <div class="filter-bar">
+                    <input class="filter-input" placeholder="Filter..." oninput="filterTable('assignments-table', this.value)">
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <div class="loading" id="assignments-loading">Loading...</div>
+                <table id="assignments-table" style="display:none">
+                    <thead><tr id="assignments-head-row"></tr></thead>
+                    <tbody id="assignments-body"></tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="table-section">
             <div class="table-header">
                 <div><h2>Trials <span class="row-count" id="trials-count"></span></h2></div>
@@ -101,12 +118,7 @@
             <div class="table-wrapper">
                 <div class="loading" id="trials-loading">Loading...</div>
                 <table id="trials-table" style="display:none">
-                    <thead><tr>
-                        <th>participant_id</th><th>timestamp</th><th>condition_id</th>
-                        <th>frame_type</th><th>loss_frame</th><th>trial_number</th>
-                        <th>bar_position</th><th>target_zone_start</th><th>target_zone_end</th>
-                        <th>distance_from_center</th><th>true_outcome</th><th>framed_outcome</th>
-                    </tr></thead>
+                    <thead><tr id="trials-head-row"></tr></thead>
                     <tbody id="trials-body"></tbody>
                 </table>
             </div>
@@ -122,11 +134,7 @@
             <div class="table-wrapper">
                 <div class="loading" id="surveys-loading">Loading...</div>
                 <table id="surveys-table" style="display:none">
-                    <thead><tr>
-                        <th>participant_id</th><th>timestamp</th><th>condition_id</th>
-                        <th>frame_type</th><th>loss_frame</th>
-                        <th>desired_rounds_next_time</th><th>confidence_impact</th><th>self_rated_accuracy</th>
-                    </tr></thead>
+                    <thead><tr id="surveys-head-row"></tr></thead>
                     <tbody id="surveys-body"></tbody>
                 </table>
             </div>
@@ -142,11 +150,7 @@
             <div class="table-wrapper">
                 <div class="loading" id="summaries-loading">Loading...</div>
                 <table id="summaries-table" style="display:none">
-                    <thead><tr>
-                        <th>participant_id</th><th>timestamp</th><th>condition_id</th>
-                        <th>frame_type</th><th>loss_frame</th>
-                        <th>trial_count</th><th>hits</th><th>near_misses</th><th>losses</th>
-                    </tr></thead>
+                    <thead><tr id="summaries-head-row"></tr></thead>
                     <tbody id="summaries-body"></tbody>
                 </table>
             </div>
@@ -193,16 +197,37 @@
         let allData = { assignments: [], trials: [], post_surveys: [], summaries: [] };
         let hideDev = false;
         const CONDITION_ORDER = ['skill_near_miss', 'skill_clear_loss', 'luck_near_miss', 'luck_clear_loss'];
+        const TABLE_CONFIG = {
+            assignments: {
+                countId: 'assignments-count',
+                headRowId: 'assignments-head-row',
+                bodyId: 'assignments-body',
+                defaultColumns: ['participant_id', 'timestamp', 'start_time', 'end_time', 'condition_id', 'frame_type', 'loss_frame', 'is_dev', 'completed']
+            },
+            trials: {
+                countId: 'trials-count',
+                headRowId: 'trials-head-row',
+                bodyId: 'trials-body',
+                defaultColumns: ['participant_id', 'timestamp', 'condition_id', 'frame_type', 'loss_frame', 'trial_number', 'bar_position', 'target_zone_start', 'target_zone_end', 'distance_from_center', 'true_outcome', 'framed_outcome']
+            },
+            surveys: {
+                countId: 'surveys-count',
+                headRowId: 'surveys-head-row',
+                bodyId: 'surveys-body',
+                defaultColumns: ['participant_id', 'timestamp', 'condition_id', 'frame_type', 'loss_frame', 'wants_more_rounds', 'desired_rounds_next_time', 'improvement_confidence', 'learning_potential', 'expected_success', 'app_download_likelihood', 'confidence_impact', 'feedback_credibility', 'self_rated_accuracy', 'final_round_closeness', 'frustration', 'motivation', 'luck_vs_skill']
+            },
+            summaries: {
+                countId: 'summaries-count',
+                headRowId: 'summaries-head-row',
+                bodyId: 'summaries-body',
+                defaultColumns: ['participant_id', 'timestamp', 'condition_id', 'frame_type', 'loss_frame', 'trial_count', 'hits', 'near_misses', 'losses', 'age', 'gender', 'bdm_course_member']
+            }
+        };
 
-        document.getElementById('hide-dev').addEventListener('change', e => {
+        document.getElementById('hide-dev').addEventListener('change', function (e) {
             hideDev = e.target.checked;
             renderAll();
         });
-
-        function pill(value, trueClass, falseClass) {
-            const cls = value ? trueClass : falseClass;
-            return `<span class="pill ${cls}">${value}</span>`;
-        }
 
         function outcomePill(v) {
             const cls = v === 'hit' ? 'pill-hit' : v === 'near_miss' ? 'pill-near-miss' : 'pill-miss';
@@ -218,66 +243,54 @@
             return hideDev ? data.filter(r => !String(r.participant_id).startsWith('DEV_')) : data;
         }
 
-        function renderTrials(data) {
-            const body = document.getElementById('trials-body');
-            const rows = filterRows(data);
-            document.getElementById('trials-count').textContent = `(${rows.length} rows)`;
-            if (!rows.length) { body.innerHTML = '<tr><td colspan="14" class="empty">No data</td></tr>'; return; }
-            body.innerHTML = rows.map(r => `<tr>
-                <td>${pidCell(r.participant_id)}</td>
-                <td>${r.timestamp?.slice(0,19) ?? ''}</td>
-                <td>${r.condition_id ?? ''}</td>
-                <td>${r.frame_type ?? ''}</td>
-                <td>${r.loss_frame ?? ''}</td>
-                <td>${r.trial_number ?? ''}</td>
-                <td>${r.bar_position?.toFixed(2) ?? ''}</td>
-                <td>${r.target_zone_start?.toFixed(2) ?? ''}</td>
-                <td>${r.target_zone_end?.toFixed(2) ?? ''}</td>
-                <td>${r.distance_from_center?.toFixed(2) ?? ''}</td>
-                <td>${outcomePill(r.true_outcome)}</td>
-                <td>${outcomePill(r.framed_outcome)}</td>
-            </tr>`).join('');
+        function formatValue(key, value) {
+            if (key === 'participant_id') return pidCell(value);
+            if (key === 'true_outcome' || key === 'framed_outcome') return outcomePill(value);
+            if (typeof value === 'boolean') return value ? '<span class="pill pill-true">true</span>' : '<span class="pill pill-false">false</span>';
+            if (value === null || value === undefined) return '';
+            if (key === 'timestamp' || key === 'start_time' || key === 'end_time') return String(value).slice(0, 19);
+            if (typeof value === 'number' && Number.isFinite(value)) {
+                return Number.isInteger(value) ? String(value) : value.toFixed(2);
+            }
+            if (typeof value === 'object') return JSON.stringify(value);
+            return String(value);
         }
 
-        function renderSurveys(data) {
-            const body = document.getElementById('surveys-body');
-            const rows = filterRows(data);
-            document.getElementById('surveys-count').textContent = `(${rows.length} rows)`;
-            if (!rows.length) { body.innerHTML = '<tr><td colspan="8" class="empty">No data</td></tr>'; return; }
-            body.innerHTML = rows.map(r => `<tr>
-                <td>${pidCell(r.participant_id)}</td>
-                <td>${r.timestamp?.slice(0,19) ?? ''}</td>
-                <td>${r.condition_id ?? ''}</td>
-                <td>${r.frame_type ?? ''}</td>
-                <td>${r.loss_frame ?? ''}</td>
-                <td>${r.desired_rounds_next_time ?? ''}</td>
-                <td>${r.confidence_impact ?? ''}</td>
-                <td>${r.self_rated_accuracy ?? ''}</td>
-            </tr>`).join('');
+        function resolveColumns(rows, defaultColumns) {
+            const present = new Set();
+            rows.forEach(r => Object.keys(r || {}).forEach(k => present.add(k)));
+            const inDefault = defaultColumns.filter(c => present.has(c));
+            const extras = Array.from(present).filter(c => !defaultColumns.includes(c)).sort();
+            return [...inDefault, ...extras];
         }
 
-        function renderSummaries(data) {
-            const body = document.getElementById('summaries-body');
-            const rows = filterRows(data);
-            document.getElementById('summaries-count').textContent = `(${rows.length} rows)`;
-            if (!rows.length) { body.innerHTML = '<tr><td colspan="9" class="empty">No data</td></tr>'; return; }
-            body.innerHTML = rows.map(r => `<tr>
-                <td>${pidCell(r.participant_id)}</td>
-                <td>${r.timestamp?.slice(0,19) ?? ''}</td>
-                <td>${r.condition_id ?? ''}</td>
-                <td>${r.frame_type ?? ''}</td>
-                <td>${r.loss_frame ?? ''}</td>
-                <td>${r.trial_count ?? ''}</td>
-                <td>${r.hits ?? ''}</td>
-                <td>${r.near_misses ?? ''}</td>
-                <td>${r.losses ?? ''}</td>
-            </tr>`).join('');
+        function renderTable(kind, rawRows) {
+            const cfg = TABLE_CONFIG[kind];
+            const rows = filterRows(rawRows);
+            const body = document.getElementById(cfg.bodyId);
+            const headRow = document.getElementById(cfg.headRowId);
+            const countEl = document.getElementById(cfg.countId);
+
+            countEl.textContent = `(${rows.length} rows)`;
+            const columns = resolveColumns(rows, cfg.defaultColumns);
+            headRow.innerHTML = columns.map(c => `<th>${c}</th>`).join('');
+
+            if (!rows.length) {
+                body.innerHTML = `<tr><td colspan="${Math.max(1, columns.length)}" class="empty">No data</td></tr>`;
+                return;
+            }
+
+            body.innerHTML = rows.map(r => {
+                const tds = columns.map(c => `<td>${formatValue(c, r[c])}</td>`).join('');
+                return `<tr>${tds}</tr>`;
+            }).join('');
         }
 
         function renderAll() {
-            renderTrials(allData.trials);
-            renderSurveys(allData.post_surveys);
-            renderSummaries(allData.summaries);
+            renderTable('assignments', allData.assignments);
+            renderTable('trials', allData.trials);
+            renderTable('surveys', allData.post_surveys);
+            renderTable('summaries', allData.summaries);
             renderAnalytics();
         }
 
@@ -295,7 +308,6 @@
                 if (cid in completed && r.completed === true) completed[cid] += 1;
             });
 
-            // Fallback for older rows if `assignments` table is empty.
             if (assignments.length === 0) {
                 summaries.forEach(r => {
                     const cid = r.condition_id;
@@ -382,8 +394,8 @@
             document.getElementById('stat-trials').textContent = trials.length;
             document.getElementById('analytics-count').textContent = `(${trials.length} trial rows in view)`;
 
-            const { assigned, completed: completedByCondition } = conditionStats(assignments, summaries);
-            renderAssignmentTable(assigned, completedByCondition);
+            const stats = conditionStats(assignments, summaries);
+            renderAssignmentTable(stats.assigned, stats.completed);
             renderOutcomeCharts(trials);
         }
 
@@ -407,7 +419,7 @@
             allData.post_surveys = json.data.filter(r => r.record_type === 'post_survey');
             allData.summaries = json.data.filter(r => r.record_type === 'summary');
 
-            ['trials', 'surveys', 'summaries'].forEach(id => {
+            ['assignments', 'trials', 'surveys', 'summaries'].forEach(id => {
                 document.getElementById(`${id}-loading`).style.display = 'none';
                 const tableId = id === 'surveys' ? 'surveys-table' : `${id}-table`;
                 document.getElementById(tableId).style.display = 'table';
