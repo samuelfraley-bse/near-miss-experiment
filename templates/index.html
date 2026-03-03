@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reaction Time & Perception Study</title>
+    <title>Competitiveness & Perception Study</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
         /* Countdown screen */
@@ -38,9 +38,9 @@
         <!-- WELCOME SCREEN -->
         <div id="welcome-screen" class="screen active">
             <div class="welcome-content">
-                <h1>Reaction Time & Perception Study</h1>
+                <h1>Competitiveness & Perception Study</h1>
                 <div class="info-box">
-                    <p>You are invited to take part in a short study on <strong>reaction time and perception</strong>. The study involves playing a brief game and answering a few questions about your experience.</p>
+                    <p>You are invited to take part in a short study on <strong>competitiveness and perception</strong>. The study involves playing a brief game and answering a few questions about your experience.</p>
                     <br>
                     <p>⏱ Estimated time: <strong>5 minutes</strong></p>
                     <p>🔒 Your responses are <strong>fully anonymous</strong></p>
@@ -70,20 +70,51 @@
         <div id="consent-screen" class="screen">
             <div class="welcome-content">
                 <h2>Informed Consent</h2>
-                <div class="info-box" style="text-align: left; font-size: 0.95em; line-height: 1.7;">
-                    <p>Before you begin, please read the following information carefully:</p>
+                <div class="info-box" style="text-align: left; font-size: 0.95em; line-height: 1.65; max-height: 58vh; overflow-y: auto; padding-right: 12px;">
+                    <p><strong>Information Sheet</strong></p>
+                    <p><strong>Title of the project:</strong> Near-Miss and Skill Framed Games</p>
+                    <p><strong>Institution:</strong> Universitat Pompeu Fabra / Barcelona School of Economics</p>
+                    <p><strong>Principal Investigators:</strong> Samuel Fraley (samuel.fraley@bse.eu), Corneel Moons (corneel.moons@bse.eu), Tizian Schenk (tizian.schenk@bse.eu)</p>
+                    <p><strong>Contact information:</strong> If you have doubts, you may contact the principal investigators.</p>
+                    <p>If you have doubts, complaints, or questions about this study or your rights as a research participant, you may contact UPF’s Institutional Committee for the Ethical Review of Projects (CIREP) by phone (+34 93 542 21 86) or by email (secretaria.cirep@upf.edu). CIREP is not part of the research team and will treat any information you send confidentially.</p>
+                    <p><strong>Funding body:</strong> No funding.</p>
+                    <p><strong>Objectives of the project:</strong> The goal of this study is to evaluate how the near-miss effect impacts participants’ persistence in skill-framed games, compared to traditionally researched luck-framed games.</p>
+                    <p><strong>Methodology and participation:</strong> This study is conducted online and takes approximately 5 minutes to complete in a single session. Participants complete a short game task of 5 rounds and then answer a brief questionnaire about their experience, perceptions, and motivation. We collect anonymous responses on game performance (for example, round outcomes), survey answers, and basic demographics (age, gender, and course membership) to analyze how different types of feedback influence perception and behavioral intentions. Participation takes place remotely on a web interface using the participant’s own device.</p>
+                    <p><strong>Inclusion criteria:</strong> None.</p>
+                    <p><strong>Voluntary participation:</strong> Your participation in this study is voluntary and you may withdraw at any time without having to justify your decision.</p>
+                    <p><strong>Risks and benefits:</strong> Participating in this study does not entail risks greater than those ordinarily encountered in daily life. We cannot and do not guarantee that you will receive any direct personal benefits from this study.</p>
+                    <p><strong>Compensation:</strong> None.</p>
+                    <p><strong>Data protection:</strong> In order to protect your privacy, data are stored using a participant code rather than your name. Data are accessible only to authorized research team members. If results are published, only anonymous data will be shared.</p>
+                    <p>The data collected during the experiment cannot be used to identify you. Thus, once the experiment concludes, we will not be able to delete the data you generated, should you ask for it. Anonymized data may be hosted or published in a public repository.</p>
+                    <p><strong>GDPR Information (UPF):</strong> Data controller: Universitat Pompeu Fabra, C. de la Merce, 12, 08002 Barcelona, Tel. +34 93 542 20 00. Data Protection Officer contact: dpd@upf.edu.</p>
+                    <p><strong>Purpose of processing:</strong> Carrying out the above-mentioned research project. Personal data will be kept during project execution and for two more years after completion for scientific validation. If a payment is involved, necessary data will be kept in accordance with applicable regulation.</p>
+                    <p><strong>Legal basis:</strong> Your consent, which can be withdrawn at any time.</p>
+                    <p><strong>Recipients:</strong> Your personal data will only be processed by Universitat Pompeu Fabra and will not be transferred to third parties without your consent, except as otherwise provided by law. Data may be anonymized and published in an open science repository.</p>
+                    <p><strong>Your rights:</strong> You may access your data; request rectification, deletion, portability (where applicable); object to processing; and request limitation of processing through www.upf.edu/web/proteccio-dades/drets. You may contact dpd@upf.edu and, if needed, file a complaint with the Catalan Data Protection Authority (apdcat.gencat.cat).</p>
                     <br>
-                    <p><strong>Purpose:</strong> This study investigates how people perceive and respond to games involving reaction time and chance.</p>
-                    <p><strong>What you will do:</strong> You will play a short game for 5 rounds and then answer a few questions about your experience.</p>
-                    <p><strong>Risks:</strong> There are no anticipated risks associated with this study.</p>
-                    <p><strong>Anonymity:</strong> Your responses are completely anonymous. No identifying information will be collected or stored.</p>
-                    <p><strong>Voluntary participation:</strong> Your participation is entirely voluntary. You may stop at any time without consequence.</p>
-                    <p><strong>Data use:</strong> Data collected will be used solely for academic research purposes.</p>
                 </div>
-                <div style="margin: 24px 0; display: flex; align-items: flex-start; gap: 12px; text-align: left;">
-                    <input type="checkbox" id="consent-checkbox" style="margin-top: 4px; width: 18px; height: 18px; cursor: pointer;" onchange="checkConsent()">
-                    <label for="consent-checkbox" style="cursor: pointer; font-size: 0.95em;">
-                        I have read and understood the information above. I agree to participate voluntarily in this study.
+                <div style="margin: 24px 0 0 0; display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+                    <input type="checkbox" id="consent-read-sheet-checkbox" style="margin-top: 4px; width: 18px; height: 18px; cursor: pointer;" onchange="checkConsent()">
+                    <label for="consent-read-sheet-checkbox" style="cursor: pointer; font-size: 0.95em;">
+                        I have read the information sheet regarding this research project.
+                    </label>
+                </div>
+                <div style="margin: 12px 0 0 0; display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+                    <input type="checkbox" id="consent-questions-checkbox" style="margin-top: 4px; width: 18px; height: 18px; cursor: pointer;" onchange="checkConsent()">
+                    <label for="consent-questions-checkbox" style="cursor: pointer; font-size: 0.95em;">
+                        I have been able to formulate questions and received sufficient information about the project.
+                    </label>
+                </div>
+                <div style="margin: 12px 0 0 0; display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+                    <input type="checkbox" id="consent-age-checkbox" style="margin-top: 4px; width: 18px; height: 18px; cursor: pointer;" onchange="checkConsent()">
+                    <label for="consent-age-checkbox" style="cursor: pointer; font-size: 0.95em;">
+                        I fulfill the inclusion criteria, and I am 18 years or older.
+                    </label>
+                </div>
+                <div style="margin: 12px 0 20px 0; display: flex; align-items: flex-start; gap: 12px; text-align: left;">
+                    <input type="checkbox" id="consent-voluntary-checkbox" style="margin-top: 4px; width: 18px; height: 18px; cursor: pointer;" onchange="checkConsent()">
+                    <label for="consent-voluntary-checkbox" style="cursor: pointer; font-size: 0.95em;">
+                        I understand that my participation is voluntary and that I can withdraw from the study at any time without needing to justify my decision.
                     </label>
                 </div>
                 <button class="btn btn-primary" id="consent-btn" onclick="switchScreen('demographics-screen')" disabled>I Agree — Continue</button>
@@ -97,7 +128,7 @@
                 <p style="color: #666; margin-bottom: 24px;">Please answer these two quick questions before we begin.</p>
                 <div class="likert-group" style="text-align: left;">
                     <label class="likert-label">Age</label>
-                    <input type="number" id="age-input" min="10" max="100" placeholder="Enter your age"
+                    <input type="number" id="age-input" min="18" max="100" placeholder="Enter your age"
                         style="padding: 10px 14px; font-size: 1em; border: 1px solid #ccc; border-radius: 6px; width: 160px; display: block; margin-top: 8px;"
                         oninput="checkDemographicsComplete()">
                 </div>
