@@ -58,15 +58,28 @@ function switchScreen(screenId) {
 }
 
 function checkConsent() {
-    const checked = document.getElementById('consent-checkbox').checked;
-    document.getElementById('consent-btn').disabled = !checked;
+    // Backward-compatible: support both legacy single checkbox and new 4-item consent.
+    const legacy = document.getElementById('consent-checkbox');
+    const readSheetEl = document.getElementById('consent-read-sheet-checkbox');
+    const questionsEl = document.getElementById('consent-questions-checkbox');
+    const ageEl = document.getElementById('consent-age-checkbox');
+    const voluntaryEl = document.getElementById('consent-voluntary-checkbox');
+
+    let allChecked = false;
+    if (readSheetEl && questionsEl && ageEl && voluntaryEl) {
+        allChecked = readSheetEl.checked && questionsEl.checked && ageEl.checked && voluntaryEl.checked;
+    } else if (legacy) {
+        allChecked = legacy.checked;
+    }
+
+    document.getElementById('consent-btn').disabled = !allChecked;
 }
 
 function checkDemographicsComplete() {
     const age = document.getElementById('age-input').value;
     const gender = document.querySelector('input[name="gender"]:checked');
     const bdmCourseMember = document.querySelector('input[name="bdm_course_member"]:checked');
-    const valid = age && parseInt(age) >= 10 && parseInt(age) <= 100 && gender && bdmCourseMember;
+    const valid = age && parseInt(age) >= 18 && parseInt(age) <= 100 && gender && bdmCourseMember;
     document.getElementById('demographics-btn').disabled = !valid;
 }
 
