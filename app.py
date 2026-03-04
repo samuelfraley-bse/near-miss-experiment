@@ -330,6 +330,9 @@ def generate_feedback(outcome, distance_from_center, frame_type="skill"):
             ]
         return random.choice(messages)
 
+    if outcome == "neutral_loss":
+        return ""
+
     # clear loss
     if frame_type == "skill":
         messages = [
@@ -599,38 +602,28 @@ def evaluate_trial():
         # Check if participant genuinely landed in the zone
         is_hit = target_zone_start <= bar_position <= target_zone_end
         distance_from_center = abs(bar_position - target_center)
+        dist_from_zone = 0.0 if is_hit else (
+            (target_zone_start - bar_position)
+            if bar_position < target_zone_start
+            else (bar_position - target_zone_end)
+        )
+        near_miss_raw = not is_hit and dist_from_zone <= NEAR_MISS_BAND  # physical proximity, DB only
 
-        if is_hit:
-            outcome = "hit"
-            is_near_miss = False
-            near_miss_raw = False
-        elif trial_number >= MAX_TRIALS and loss_frame == "near_miss":
-            # Last trial for near_miss group: always near miss so it lingers in mind during survey
-            outcome = "near_miss"
-            is_near_miss = True
-            near_miss_raw = True
-        elif trial_number >= MAX_TRIALS:
-            # Last trial for clear_loss group: always a clear loss
-            outcome = "loss"
-            is_near_miss = False
-            near_miss_raw = False
-        else:
-            # Check how far they were from the zone
-            dist_from_zone = (
-                (target_zone_start - bar_position)
-                if bar_position < target_zone_start
-                else (bar_position - target_zone_end)
-            )
-            if dist_from_zone > 35:
-                # Visibly, obviously far — clear loss even in near_miss condition
+        if trial_number >= MAX_TRIALS - 1:
+            # Trials 4 and 5: forced by condition regardless of actual bar position
+            if loss_frame == "near_miss":
+                outcome = "near_miss"
+                is_near_miss = True
+            else:
                 outcome = "loss"
                 is_near_miss = False
-                near_miss_raw = False
-            else:
-                # Within plausible range — follow assigned condition
-                is_near_miss = loss_frame == "near_miss"
-                near_miss_raw = is_near_miss
-                outcome = "near_miss" if is_near_miss else "loss"
+        elif is_hit:
+            outcome = "hit"
+            is_near_miss = False
+        else:
+            # Trials 1–3: always neutral loss, no near-miss labeling
+            outcome = "loss"
+            is_near_miss = False
     else:
         # Luck condition: wheel outcome engineered on frontend — trust shown_outcome
         # shown_outcome is 'hit', 'near_miss', or 'clear_loss'
@@ -684,7 +677,9 @@ def evaluate_trial():
             "framed_outcome": framed_outcome,
             "distance_from_center": round(distance_from_center, 2),
             "feedback": generate_feedback(
-                framed_outcome, distance_from_center, frame_type
+                "neutral_loss" if (framed_outcome == "loss" and trial_number < MAX_TRIALS - 1) else framed_outcome,
+                distance_from_center,
+                frame_type
             ),
             "trial_count": session["trial_count"],
             "max_trials": MAX_TRIALS,

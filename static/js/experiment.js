@@ -26,7 +26,7 @@ let experimentState = {
     barPosition: 0,
     barAnimationId: null,
     reelSpinning: false,
-    reelHitUsed: false,
+    reelForcedSide: null,
     wheelZoneStart: 0,
     wheelZoneEnd: 0
 };
@@ -310,31 +310,39 @@ function spinReel() {
     experimentState.reelSpinning = true;
     document.getElementById('wheel-spin-btn').disabled = true;
 
-    var lossFrame   = experimentState.lossFrame;
-    var isLastRound = experimentState.currentTrial >= experimentState.maxTrials;
+    var lossFrame    = experimentState.lossFrame;
+    var isForcedRound = experimentState.currentTrial >= experimentState.maxTrials - 1;
     var zs = experimentState.wheelZoneStart;
     var ze = experimentState.wheelZoneEnd;
 
     var shownOutcome;
-    if (isLastRound) {
-        shownOutcome = lossFrame;
-    } else if (!experimentState.reelHitUsed && experimentState.currentTrial >= 2 && Math.random() < 0.4) {
-        shownOutcome = 'hit';
+    if (isForcedRound) {
+        shownOutcome = lossFrame;           // 'near_miss' or 'clear_loss' — forced
+    } else if (Math.random() < 1/3) {
+        shownOutcome = 'hit';               // independent 1/3 per trial, no cap
     } else {
-        shownOutcome = Math.random() < 0.80
-            ? lossFrame
-            : (lossFrame === 'near_miss' ? 'clear_loss' : 'near_miss');
+        shownOutcome = 'clear_loss';        // neutral plain loss regardless of condition
     }
-    if (shownOutcome === 'hit') experimentState.reelHitUsed = true;
 
     var targetValue;
     if (shownOutcome === 'hit') {
         targetValue = zs + 1 + Math.floor(Math.random() * Math.max(1, ze - zs - 1));
     } else if (shownOutcome === 'near_miss') {
-        if (Math.random() < 0.5) {
-            targetValue = ze + 1 + Math.floor(Math.random() * 5);
+        var side;
+        if (isForcedRound) {
+            if (experimentState.reelForcedSide === null) {
+                side = Math.random() < 0.5 ? 'right' : 'left';
+                experimentState.reelForcedSide = side;
+            } else {
+                side = experimentState.reelForcedSide === 'right' ? 'left' : 'right';
+            }
         } else {
-            targetValue = zs - 1 - Math.floor(Math.random() * 5);
+            side = Math.random() < 0.5 ? 'right' : 'left';
+        }
+        if (side === 'right') {
+            targetValue = ze + 1;
+        } else {
+            targetValue = Math.max(0, zs - 1);
         }
     } else {
         targetValue = ze + 28 + Math.floor(Math.random() * 20);
