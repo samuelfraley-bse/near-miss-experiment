@@ -26,7 +26,6 @@ let experimentState = {
     barPosition: 0,
     barAnimationId: null,
     reelSpinning: false,
-    reelForcedSide: null,
     wheelZoneStart: 0,
     wheelZoneEnd: 0
 };
@@ -294,8 +293,14 @@ function buildReel() {
 
 function setupReelTrial(config) {
     document.getElementById('wheel-trial-num').textContent = experimentState.currentTrial;
-    experimentState.wheelZoneStart = Math.floor(Math.random() * 60) + 15;
-    experimentState.wheelZoneEnd   = experimentState.wheelZoneStart + 8;
+    var isForcedRound = experimentState.currentTrial >= experimentState.maxTrials - 1;
+    if (isForcedRound) {
+        experimentState.wheelZoneStart = 40;
+        experimentState.wheelZoneEnd   = 48;
+    } else {
+        experimentState.wheelZoneStart = Math.floor(Math.random() * 60) + 15;
+        experimentState.wheelZoneEnd   = experimentState.wheelZoneStart + 8;
+    }
     document.getElementById('wheel-zone-label').textContent =
         'Winning zone: ' + experimentState.wheelZoneStart + '–' + experimentState.wheelZoneEnd;
     updateReelDimensions();
@@ -316,36 +321,27 @@ function spinReel() {
     var ze = experimentState.wheelZoneEnd;
 
     var shownOutcome;
-    if (isForcedRound) {
-        shownOutcome = lossFrame;           // 'near_miss' or 'clear_loss' — forced
-    } else if (Math.random() < 1/3) {
-        shownOutcome = 'hit';               // independent 1/3 per trial, no cap
-    } else {
-        shownOutcome = 'clear_loss';        // neutral plain loss regardless of condition
-    }
-
     var targetValue;
-    if (shownOutcome === 'hit') {
-        targetValue = zs + 1 + Math.floor(Math.random() * Math.max(1, ze - zs - 1));
-    } else if (shownOutcome === 'near_miss') {
-        var side;
-        if (isForcedRound) {
-            if (experimentState.reelForcedSide === null) {
-                side = Math.random() < 0.5 ? 'right' : 'left';
-                experimentState.reelForcedSide = side;
-            } else {
-                side = experimentState.reelForcedSide === 'right' ? 'left' : 'right';
-            }
+
+    if (isForcedRound) {
+        // Trials 4-5: fully hardcoded zone (40-48) and landing positions
+        shownOutcome = lossFrame;
+        if (lossFrame === 'near_miss') {
+            // Trial 4: land at 52 (right of zone), Trial 5: land at 36 (left of zone)
+            targetValue = experimentState.currentTrial === experimentState.maxTrials - 1 ? 50 : 38;
         } else {
-            side = Math.random() < 0.5 ? 'right' : 'left';
-        }
-        if (side === 'right') {
-            targetValue = ze + 1;
-        } else {
-            targetValue = Math.max(0, zs - 1);
+            // clear_loss: always land far from zone
+            targetValue = 10;
         }
     } else {
-        targetValue = ze + 28 + Math.floor(Math.random() * 20);
+        // Trials 1-3: random zone, 1/5 hit chance
+        if (Math.random() < 0.2) {
+            shownOutcome = 'hit';
+            targetValue = zs + 1 + Math.floor(Math.random() * Math.max(1, ze - zs - 1));
+        } else {
+            shownOutcome = 'clear_loss';
+            targetValue = ze + 28 + Math.floor(Math.random() * 20);
+        }
     }
     targetValue = ((targetValue % 100) + 100) % 100;
 
