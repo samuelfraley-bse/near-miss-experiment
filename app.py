@@ -299,19 +299,7 @@ def build_frame(frame_type, loss_frame):
 
 def generate_feedback(outcome, distance_from_center, frame_type="skill"):
     if outcome == "hit":
-        if frame_type == "skill":
-            messages = [
-                "Great timing! Right in the zone.",
-                "Nailed it! Perfect stop.",
-                "Excellent — right where you wanted it.",
-            ]
-        else:
-            messages = [
-                "Lucky you! Right in the zone.",
-                "Fortune favours you this round!",
-                "That one landed perfectly.",
-            ]
-        return random.choice(messages)
+        return ""
 
     if outcome == "near_miss":
         if frame_type == "skill":

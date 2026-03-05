@@ -419,7 +419,7 @@ function showOutcome(result) {
     nextBtn.classList.add('hidden');
 
     if (result.framed_outcome === 'hit') {
-        outcomeText.textContent = '🎉 You got it!';
+        outcomeText.textContent = 'You got it!';
         outcomeText.className   = 'outcome-text outcome-hit';
     } else if (result.framed_outcome === 'near_miss') {
         outcomeText.textContent = 'SO close!!';
