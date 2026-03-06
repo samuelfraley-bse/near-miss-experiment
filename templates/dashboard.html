@@ -71,6 +71,17 @@
         .trial-total { font-size: 10px; color: #9ca3af; }
         .chart-legend { display: flex; gap: 10px; margin-top: 8px; font-size: 11px; color: #4b5563; flex-wrap: wrap; }
         .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: -1px; }
+
+        .survey-section { margin-top: 24px; }
+        .survey-section-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+        .survey-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+        .survey-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; background: #fff; }
+        .survey-card-title { font-size: 11px; font-weight: 600; color: #6b7280; margin-bottom: 6px; }
+        .survey-bars { display: flex; align-items: flex-end; gap: 3px; height: 80px; padding-top: 4px; }
+        .survey-bar-col { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
+        .survey-bar { width: 100%; background: #6366f1; border-radius: 2px 2px 0 0; min-height: 1px; }
+        .survey-bar-label { font-size: 9px; color: #9ca3af; }
+        .survey-bar-count { font-size: 9px; color: #6b7280; }
     </style>
 </head>
 <body>
@@ -189,6 +200,7 @@
                 </table>
 
                 <div class="outcome-grid" id="outcome-grid"></div>
+                <div id="survey-histograms"></div>
             </div>
         </div>
     </div>
@@ -197,6 +209,20 @@
         let allData = { assignments: [], trials: [], post_surveys: [], summaries: [] };
         let hideDev = false;
         const CONDITION_ORDER = ['skill_near_miss', 'skill_clear_loss', 'luck_near_miss', 'luck_clear_loss'];
+        const SURVEY_QUESTIONS = [
+            { key: 'desired_rounds_next_time', label: 'Desired rounds next time', min: 0, max: 5 },
+            { key: 'improvement_confidence',   label: 'Confidence in improvement', min: 1, max: 7 },
+            { key: 'learning_potential',        label: 'Learning potential', min: 1, max: 7 },
+            { key: 'expected_success',          label: 'Expected successes / 10 rounds', min: 0, max: 10 },
+            { key: 'app_download_likelihood',   label: 'App download likelihood', min: 1, max: 7 },
+            { key: 'confidence_impact',         label: 'Control / confidence impact', min: 1, max: 7 },
+            { key: 'feedback_credibility',      label: 'Feedback credibility', min: 1, max: 7 },
+            { key: 'self_rated_accuracy',       label: 'Felt close to winning', min: 1, max: 7 },
+            { key: 'final_round_closeness',     label: 'Final round closeness', min: 1, max: 7 },
+            { key: 'frustration',               label: 'Frustration', min: 1, max: 7 },
+            { key: 'motivation',                label: 'Motivation', min: 1, max: 7 },
+            { key: 'luck_vs_skill',             label: 'Luck vs skill attribution', min: 1, max: 7 },
+        ];
         const TABLE_CONFIG = {
             assignments: {
                 countId: 'assignments-count',
@@ -379,6 +405,51 @@
             grid.innerHTML = cards;
         }
 
+        function renderSurveyHistograms(surveys) {
+            const container = document.getElementById('survey-histograms');
+            if (!surveys.length) { container.innerHTML = ''; return; }
+
+            const html = SURVEY_QUESTIONS.map(q => {
+                const values = [];
+                for (let v = q.min; v <= q.max; v++) values.push(v);
+
+                const condCounts = Object.fromEntries(
+                    CONDITION_ORDER.map(cid => {
+                        const rows = surveys.filter(r => r.condition_id === cid);
+                        const counts = Object.fromEntries(values.map(v => [v, 0]));
+                        rows.forEach(r => { const val = Number(r[q.key]); if (val >= q.min && val <= q.max) counts[val]++; });
+                        return [cid, { counts, n: rows.length }];
+                    })
+                );
+
+                const globalMax = Math.max(1, ...CONDITION_ORDER.flatMap(cid => Object.values(condCounts[cid].counts)));
+
+                const cards = CONDITION_ORDER.map(cid => {
+                    const { counts, n } = condCounts[cid];
+                    const bars = values.map(v => {
+                        const cnt = counts[v];
+                        const h = Math.round((cnt / globalMax) * 70);
+                        return `<div class="survey-bar-col">
+                            <div class="survey-bar-count">${cnt || ''}</div>
+                            <div class="survey-bar" style="height:${h}px;" title="${q.key}=${v}: ${cnt}"></div>
+                            <div class="survey-bar-label">${v}</div>
+                        </div>`;
+                    }).join('');
+                    return `<div class="survey-card">
+                        <div class="survey-card-title">${cid} (n=${n})</div>
+                        <div class="survey-bars">${bars}</div>
+                    </div>`;
+                }).join('');
+
+                return `<div class="survey-section">
+                    <div class="survey-section-title">${q.label}</div>
+                    <div class="survey-grid">${cards}</div>
+                </div>`;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
         function renderAnalytics() {
             const assignments = filterRows(allData.assignments);
             const trials = filterRows(allData.trials);
@@ -397,6 +468,7 @@
             const stats = conditionStats(assignments, summaries);
             renderAssignmentTable(stats.assigned, stats.completed);
             renderOutcomeCharts(trials);
+            renderSurveyHistograms(filterRows(allData.post_surveys));
         }
 
         function filterTable(tableId, query) {
