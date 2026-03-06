@@ -327,8 +327,8 @@ function spinReel() {
         // Trials 4-5: fully hardcoded zone (40-48) and landing positions
         shownOutcome = lossFrame;
         if (lossFrame === 'near_miss') {
-            // Trial 4: land at 52 (right of zone), Trial 5: land at 36 (left of zone)
-            targetValue = experimentState.currentTrial === experimentState.maxTrials - 1 ? 50 : 38;
+            // Trial 4: pointer shows 49 (right of zone end 48), Trial 5: pointer shows 39 (left of zone start 40)
+            targetValue = experimentState.currentTrial === experimentState.maxTrials - 1 ? 49 : 39;
         } else {
             // clear_loss: always land far from zone
             targetValue = 10;
@@ -345,7 +345,7 @@ function spinReel() {
     }
     targetValue = ((targetValue % 100) + 100) % 100;
 
-    var baseIdx   = 200 + targetValue;
+    var baseIdx   = 199 + targetValue;
     var duration  = 5500;
     var startTime = Date.now();
 
