@@ -211,18 +211,18 @@
         let hideDev = true;
         const CONDITION_ORDER = ['skill_near_miss', 'skill_clear_loss', 'luck_near_miss', 'luck_clear_loss'];
         const SURVEY_QUESTIONS = [
-            { key: 'desired_rounds_next_time', label: 'Desired rounds next time', min: 0, max: 5 },
-            { key: 'improvement_confidence',   label: 'Confidence in improvement', min: 1, max: 7 },
-            { key: 'learning_potential',        label: 'Learning potential', min: 1, max: 7 },
-            { key: 'expected_success',          label: 'Expected successes / 10 rounds', min: 0, max: 10 },
-            { key: 'app_download_likelihood',   label: 'App download likelihood', min: 1, max: 7 },
-            { key: 'confidence_impact',         label: 'Control / confidence impact', min: 1, max: 7 },
-            { key: 'feedback_credibility',      label: 'Feedback credibility', min: 1, max: 7 },
-            { key: 'self_rated_accuracy',       label: 'Felt close to winning', min: 1, max: 7 },
-            { key: 'final_round_closeness',     label: 'Final round closeness', min: 1, max: 7 },
-            { key: 'frustration',               label: 'Frustration', min: 1, max: 7 },
-            { key: 'motivation',                label: 'Motivation', min: 1, max: 7 },
-            { key: 'luck_vs_skill',             label: 'Luck vs skill attribution', min: 1, max: 7 },
+            { key: 'desired_rounds_next_time', label: 'Desired rounds next time',       min: 0, max: 5,  scale: '0 = none, 5 = max' },
+            { key: 'improvement_confidence',   label: 'Confidence in improvement',      min: 1, max: 7,  scale: '1 = not at all, 7 = extremely confident' },
+            { key: 'learning_potential',        label: 'Learning potential',             min: 1, max: 7,  scale: '1 = not at all, 7 = a lot' },
+            { key: 'expected_success',          label: 'Expected successes / 10 rounds', min: 0, max: 10, scale: '0–10 rounds' },
+            { key: 'app_download_likelihood',   label: 'App download likelihood',        min: 1, max: 7,  scale: '1 = not at all likely, 7 = extremely likely' },
+            { key: 'confidence_impact',         label: 'Control / confidence impact',    min: 1, max: 7,  scale: '1 = not at all, 7 = a great deal' },
+            { key: 'feedback_credibility',      label: 'Feedback credibility',           min: 1, max: 7,  scale: '1 = not believable, 7 = very believable' },
+            { key: 'self_rated_accuracy',       label: 'Felt close to winning',          min: 1, max: 7,  scale: '1 = strongly disagree, 7 = strongly agree' },
+            { key: 'final_round_closeness',     label: 'Final round closeness',          min: 1, max: 7,  scale: '1 = not close, 7 = very close' },
+            { key: 'frustration',               label: 'Frustration',                    min: 1, max: 7,  scale: '1 = not frustrated, 7 = very frustrated' },
+            { key: 'motivation',                label: 'Motivation',                     min: 1, max: 7,  scale: '1 = not motivated, 7 = very motivated' },
+            { key: 'luck_vs_skill',             label: 'Luck vs skill attribution',      min: 1, max: 7,  scale: '1 = all luck, 7 = all skill' },
         ];
         const TABLE_CONFIG = {
             assignments: {
@@ -474,7 +474,7 @@
                 }).join('');
 
                 return `<div class="survey-section">
-                    <div class="survey-section-title">${q.label}</div>
+                    <div class="survey-section-title">${q.label} <span style="font-weight:400;color:#9ca3af;font-size:11px;">(${q.scale})</span></div>
                     <div class="survey-grid">${cards}</div>
                 </div>`;
             }).join('');
