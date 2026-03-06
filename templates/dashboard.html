@@ -24,6 +24,7 @@
         .table-header { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ecf0f1; }
         .table-header h2 { font-size: 15px; font-weight: 600; }
         .row-count { font-size: 12px; color: #7f8c8d; margin-left: 8px; font-weight: 400; }
+        .dupe-count { font-size: 12px; color: #e74c3c; margin-left: 10px; font-weight: 500; }
         .table-wrapper { overflow-x: auto; max-height: 400px; overflow-y: auto; }
 
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -105,7 +106,7 @@
     <div class="content">
         <div class="table-section">
             <div class="table-header">
-                <div><h2>Assignments <span class="row-count" id="assignments-count"></span></h2></div>
+                <div><h2>Assignments <span class="row-count" id="assignments-count"></span><span class="dupe-count" id="assignments-dupes"></span></h2></div>
                 <div class="filter-bar">
                     <input class="filter-input" placeholder="Filter..." oninput="filterTable('assignments-table', this.value)">
                 </div>
@@ -137,7 +138,7 @@
 
         <div class="table-section">
             <div class="table-header">
-                <div><h2>Post Surveys <span class="row-count" id="surveys-count"></span></h2></div>
+                <div><h2>Post Surveys <span class="row-count" id="surveys-count"></span><span class="dupe-count" id="surveys-dupes"></span></h2></div>
                 <div class="filter-bar">
                     <input class="filter-input" placeholder="Filter..." oninput="filterTable('surveys-table', this.value)">
                 </div>
@@ -153,7 +154,7 @@
 
         <div class="table-section">
             <div class="table-header">
-                <div><h2>Summaries <span class="row-count" id="summaries-count"></span></h2></div>
+                <div><h2>Summaries <span class="row-count" id="summaries-count"></span><span class="dupe-count" id="summaries-dupes"></span></h2></div>
                 <div class="filter-bar">
                     <input class="filter-input" placeholder="Filter..." oninput="filterTable('summaries-table', this.value)">
                 </div>
@@ -318,10 +319,31 @@
             renderTable('surveys', allData.post_surveys);
             renderTable('summaries', allData.summaries);
             renderAnalytics();
+
+            const aRows = filterRows(allData.assignments);
+            const aDupes = getDupeCount(aRows);
+            const aEl = document.getElementById('assignments-dupes');
+            aEl.textContent = aDupes > 0 ? `+${aDupes} duplicate rows` : '';
+
+            const sRows = filterRows(allData.post_surveys);
+            const sDupes = getDupeCount(sRows);
+            const sEl = document.getElementById('surveys-dupes');
+            sEl.textContent = sDupes > 0 ? `+${sDupes} duplicate rows` : '';
+
+            const sumRows = filterRows(allData.summaries);
+            const sumDupes = getDupeCount(sumRows);
+            const sumEl = document.getElementById('summaries-dupes');
+            sumEl.textContent = sumDupes > 0 ? `+${sumDupes} duplicate rows` : '';
         }
 
         function getUniqueParticipantCount(rows) {
             return new Set(rows.map(r => String(r.participant_id))).size;
+        }
+
+        function getDupeCount(rows) {
+            const counts = {};
+            rows.forEach(r => { const id = String(r.participant_id); counts[id] = (counts[id] || 0) + 1; });
+            return Object.values(counts).reduce((sum, c) => sum + (c > 1 ? c - 1 : 0), 0);
         }
 
         function conditionStats(assignments, summaries) {
