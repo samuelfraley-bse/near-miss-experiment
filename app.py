@@ -119,7 +119,7 @@ def parse_int(value, default=0):
 
 
 def assign_balanced_condition():
-    """Assign new participant to whichever condition has fewest assignments."""
+    """Assign new participant to whichever condition has fewest *completions*."""
     all_conditions = [
         ("skill", "near_miss"),
         ("skill", "clear_loss"),
@@ -133,7 +133,10 @@ def assign_balanced_condition():
 
         rows = (
             db.session.query(Assignment.condition_id, func.count(Assignment.id))
-            .filter(~Assignment.participant_id.like("DEV_%"))
+            .filter(
+                ~Assignment.participant_id.like("DEV_%"),
+                Assignment.completed == True
+            )
             .group_by(Assignment.condition_id)
             .all()
         )
@@ -152,7 +155,7 @@ def assign_balanced_condition():
                         line = line.strip()
                         if line:
                             record = json.loads(line)
-                            if record.get("record_type") == "assignment":
+                            if record.get("record_type") == "assignment" and record.get("completed") is True:
                                 cid = record.get("condition_id")
                                 if cid in counts:
                                     counts[cid] += 1
