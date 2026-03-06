@@ -92,7 +92,7 @@
         </div>
         <div class="export-all">
             <label class="dev-toggle" style="color:white;">
-                <input type="checkbox" id="hide-dev"> Hide DEV_ rows
+                <input type="checkbox" id="hide-dev" checked> Hide DEV_ rows
             </label>
             <button class="btn btn-export" onclick="exportCSV('assignments')">-> assignments.csv</button>
             <button class="btn btn-export" onclick="exportCSV('trials')">-> trials.csv</button>
@@ -207,7 +207,7 @@
 
     <script>
         let allData = { assignments: [], trials: [], post_surveys: [], summaries: [] };
-        let hideDev = false;
+        let hideDev = true;
         const CONDITION_ORDER = ['skill_near_miss', 'skill_clear_loss', 'luck_near_miss', 'luck_clear_loss'];
         const SURVEY_QUESTIONS = [
             { key: 'desired_rounds_next_time', label: 'Desired rounds next time', min: 0, max: 5 },
