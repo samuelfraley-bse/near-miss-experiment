@@ -346,6 +346,16 @@
             return Object.values(counts).reduce((sum, c) => sum + (c > 1 ? c - 1 : 0), 0);
         }
 
+        function dedupeById(rows) {
+            const seen = new Set();
+            return rows.filter(r => {
+                const id = String(r.participant_id);
+                if (seen.has(id)) return false;
+                seen.add(id);
+                return true;
+            });
+        }
+
         function conditionStats(assignments, summaries) {
             const assigned = Object.fromEntries(CONDITION_ORDER.map(c => [c, 0]));
             const completed = Object.fromEntries(CONDITION_ORDER.map(c => [c, 0]));
@@ -490,7 +500,7 @@
             const stats = conditionStats(assignments, summaries);
             renderAssignmentTable(stats.assigned, stats.completed);
             renderOutcomeCharts(trials);
-            renderSurveyHistograms(filterRows(allData.post_surveys));
+            renderSurveyHistograms(dedupeById(filterRows(allData.post_surveys)));
         }
 
         function filterTable(tableId, query) {
