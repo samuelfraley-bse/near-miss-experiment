@@ -1,0 +1,318 @@
+Total slides: 14
+======================================================================
+
+### SLIDE 1 ###
+--------------------------------------------------
+Does skill attribution amplify the near-miss effect on task persistence?
+
+Corneel Moons, Tizian Schenk, Samuel Fraley
+
+======================================================================
+
+### SLIDE 2 ###
+--------------------------------------------------
+Causal clames to be tested
+
+Manipulating task framing (skill vs. luck) and feedback type (near-miss vs. clear-loss) will produce an interaction effect on willingness to persist
+
+If the interaction is driven by rational updating, perceived learning potential will mediate the Skill × Near-Miss interaction
+
+H4
+
+Lorem ipsum dolor sit amet, consectetr
+
+Explo-ration
+
+H3
+
+Lorem ipsum dolor sit amet, consectetur
+
+In the skill-framed condition, near-miss feedback will produce significantly higher persistence than clear-loss feedback
+
+Simple effect - luck
+
+H2
+
+Lorem ipsum dolor sit amet, consectetur
+
+In the luck-framed condition, near-miss feedback will produce higher persistence than clear-loss feedback, but this difference will be smaller than in H2 (or potentially 
+non-significant)
+
+Simple effect - skill
+
+H1
+
+Lorem ipsum dolor sit amet, consectetur
+
+Interaction
+
+The difference in persistence between near-miss and clear-loss feedback will be significantly larger in the skill-framed condition than in the luck-framed condition
+
+======================================================================
+
+### SLIDE 3 ###
+--------------------------------------------------
+Causal clames to be tested
+
+Manipulating task framing (skill vs. luck) and feedback type (near-miss vs. clear-loss) will produce an interaction effect on willingness to persist
+
+If the interaction is driven by rational updating, perceived learning potential will mediate the Skill × Near-Miss interaction
+
+[TABLE]
+ | Near-Miss | Clear-Loss | Difference
+Skill-framed | High | Medium | Large gap
+Luck-framed | Medium | Low-Medium | Small gap
+
+In the skill-framed condition, near-miss feedback will produce significantly higher persistence than clear-loss feedback
+
+In the luck-framed condition, near-miss feedback will produce higher persistence than clear-loss feedback, but this difference will be smaller than in H2 (or potentially 
+non-significant)
+
+Interaction
+
+The difference in persistence between near-miss and clear-loss feedback will be significantly larger in the skill-framed condition than in the luck-framed condition
+
+Interaction: 
+Skill amplifies the 
+near-miss effect
+
+======================================================================
+
+### SLIDE 4 ###
+--------------------------------------------------
+Dependent variables
+
+Basic Version
+
+Primary DV
+
+Secondary DV
+
+Likert scale measure  
+
+self-reported willingness 1-7
+
+Willingness to persist
+
+behavioral choice of rounds 0-10
+
+This way we are getting both behavioral and attitudinal measures
+
+======================================================================
+
+### SLIDE 5 ###
+--------------------------------------------------
+Dependent variables
+
+01
+
+Elaborated version
+
+PRIMARY DV:
+Incentive-Compatible Round Choice
+
+0-5
+
+02
+
+SECONDARY DV:
+Willingness to Return
+
+1-7
+
+03
+
+TERTIARY DV:
+Binary Persistence Decision
+
+Yes/No
+
+EXPLORATORY DV: Confidence in Future Success
+
+0-10
+
+04
+
+======================================================================
+
+### SLIDE 6 ###
+--------------------------------------------------
+Dependent variables explained
+
+01
+
+Elaborated version
+
+Real trade-off: Time cost is explicit
+Actually implemented: 
+They must play the rounds they choose
+
+0-5
+
+02
+
+Captures a different dimension: future engagement vs. immediate persistence
+
+1-7
+
+03
+
+Continuous analysis (how much persistence)
+Binary analysis (whether they persist )
+
+Yes/No
+
+Captures expected success rate
+distinct from willingness
+
+0-10
+
+04
+
+======================================================================
+
+### SLIDE 7 ###
+--------------------------------------------------
+Random assignment to one of the four conditions
+
++-50%
+
+This is a between-subjects design (each participant experiences only one condition) because:
+-Avoids demand effects: If participants see both skill and luck framing, they might guess the hypothesis
+- Avoids carryover: The experience of one framing would contaminate the other
+- Cleaner causal inference: Each observation is independent
+- Practical: Shorter survey per participant
+
++-50%
+
+Skill
+
+Luck
+
+Near-miss
+
+Clear-loss
+
+Task framing:
+Manipulation occurs in the task instructions
+
+Feedback type presented after trial:
+Near-miss feedback: Skill vs. Luck framed
+Clear-loss feedback: Skill vs. Luck framed
+
+======================================================================
+
+### SLIDE 8 ###
+--------------------------------------------------
+Analysis Plan & Data Sample
+
+Analysis
+2×2 between-subjects ANOVA testing the Framing × Feedback interaction on willingness to persist
+
+If interaction is significant: simple effects tests within each framing condition to examine near-miss vs. clear-loss contrast
+
+Manipulation checks: independent t-tests verifying skill and feedback perception
+
+All tests two-tailed, α = .05; report 95% CIs and effect sizes
+
+Data Sample
+Ideally, 200 total, with 50 in each of the 4 conditions (80% power to detect interaction effect, given our power analysis)
+
+Realistically, expect less than that (128 total, or 38 per cell)
+
+Recruit inside the class, respective master's cohort, general BSE student body as well as friends/family outside BSE
+
+======================================================================
+
+### SLIDE 9 ###
+--------------------------------------------------
+Appendix
+
+======================================================================
+
+### SLIDE 10 ###
+--------------------------------------------------
+Imagine two scenarios
+
+XX%
+Willingness to persist
+
+Scenario A (Skill)
+You practice a basketball free throw. First shot hits the rim and almost goes in. 
+
+You think: "I almost had it! Let me adjust my form."
+
+YY%
+Willingness to persist
+
+Scenario B (Luck)
+You buy a lottery ticket: 5-5-6. Just needed one more 5 to win. 
+
+You think: "That was close... but still random."
+
+======================================================================
+
+### SLIDE 11 ###
+--------------------------------------------------
+The near-miss phenomenon
+
+Does "almost winning" motivate MORE when you think skill matters?
+
+Theory
+
+Practice
+
+Theoretical relevance
+Learning & education: How should we give feedback?
+Game design: How do games keep players engaged?
+Training systems: When do people persist vs. quit?
+
+Practical relevance
+Tests conditional reinforcement theory
+Extends near-miss research beyond gambling
+Examines rationality of persistence decisions
+
+Relevance
+
+======================================================================
+
+### SLIDE 12 ###
+--------------------------------------------------
+Near-miss feedback will increase willingness to persist more strongly when the task is framed as skill-based than when framed as luck-based. Specifically, we predict an interaction: the difference between near-miss and clear-loss conditions will be larger when outcomes are attributed to skill versus chance.
+
+Causal Claim
+
+======================================================================
+
+### SLIDE 13 ###
+--------------------------------------------------
+The experiment(s)
+
+All participants: Press STOP when bar reaches target zone
+
+All participants: Press PLAY like in a slot machine
+
+======================================================================
+
+### SLIDE 14 ###
+--------------------------------------------------
+Theory behind expected results
+
+Theory: Conditional reinforcement + skill attribution
+Near-misses signal achievable success
+But only feel "achievable" when you think YOU can control the outcome
+
+Predictions:
+Skill/Near-miss >> Skill/Clear-loss (LARGE gap)
+Luck/Near-miss > Luck/Clear-loss (SMALL gap)
+Interaction significant - skill amplifies the near-miss effect
+
+Analysis
+2×2 ANOVA testing interaction
+Simple effects tests
+95% CIs for all comparisons
+
+Insight
+Whether skill attribution is necessary for strong near-miss effects
+
+======================================================================
