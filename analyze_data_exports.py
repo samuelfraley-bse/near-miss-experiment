@@ -87,18 +87,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--trials",
-        default="trials.csv",
-        help="Path to trials export (.csv/.json/.jsonl). Default: trials.csv",
+        default="experiment_data/trials_rows.csv",
+        help="Path to trials export (.csv/.json/.jsonl). Default: experiment_data/trials_rows.csv",
     )
     parser.add_argument(
         "--surveys",
-        default="post_surveys.csv",
-        help="Path to post_surveys export (.csv/.json/.jsonl). Default: post_surveys.csv",
+        default="experiment_data/post_surveys_rows.csv",
+        help="Path to post_surveys export (.csv/.json/.jsonl). Default: experiment_data/post_surveys_rows.csv",
     )
     parser.add_argument(
         "--summaries",
-        default="summaries.csv",
-        help="Path to summaries export (.csv/.json/.jsonl). Default: summaries.csv",
+        default="experiment_data/summaries_rows.csv",
+        help="Path to summaries export (.csv/.json/.jsonl). Default: experiment_data/summaries_rows.csv",
     )
     parser.add_argument(
         "--supabase-url",
